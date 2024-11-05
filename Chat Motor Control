@@ -83,13 +83,25 @@ void driveMecanum(int direction) {
       setMotorSpeeds(flSpeed, -frSpeed, -blSpeed, brSpeed);
       break;
     case 4: // Strafe Left
-      setMotorSpeeds(-flSpeed, frSpeed, frSpeed, -blSpeed);
+      setMotorSpeeds(-flSpeed, frSpeed, blSpeed, -brSpeed);
       break;
     case 5: // Rotate Clockwise
       setMotorSpeeds(flSpeed, -frSpeed, flSpeed, -brSpeed);
       break;
     case 6: // Rotate Counterclockwise
       setMotorSpeeds(-flSpeed, frSpeed, -flSpeed, brSpeed);
+      break;
+    case 7: // Diagonal Forward Right
+      setMotorSpeeds(flSpeed, 0, 0, brSpeed);
+      break;
+    case 8: // Diagonal Forward Left
+      setMotorSpeeds(0, frSpeed, blSpeed, 0);
+      break;
+    case 9: // Diagonal Backward Right
+      setMotorSpeeds(0, -frSpeed, -blSpeed, 0);
+      break;
+    case 10: // Diagonal Backward Left
+      setMotorSpeeds(-flSpeed, 0, 0, -brSpeed);
       break;
     default: // Stop
       setMotorSpeeds(0, 0, 0, 0);
