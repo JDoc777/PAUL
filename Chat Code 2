@@ -1,0 +1,140 @@
+// Define motor control pins
+#define MOTOR_FL_IN1 2  // Front Left
+#define MOTOR_FL_IN2 3
+#define MOTOR_FR_IN1 4  // Front Right
+#define MOTOR_FR_IN2 5
+#define MOTOR_BL_IN1 6  // Back Left
+#define MOTOR_BL_IN2 7
+#define MOTOR_BR_IN1 8  // Back Right
+#define MOTOR_BR_IN2 9
+
+// Encoder pins
+#define ENCODER1_A 10
+#define ENCODER1_B 11
+#define ENCODER2_A 12
+#define ENCODER2_B 13
+#define ENCODER3_A 14
+#define ENCODER3_B 15
+#define ENCODER4_A 16
+#define ENCODER4_B 17
+
+// Encoder count variables
+volatile long encoderCount1 = 0;
+volatile long encoderCount2 = 0;
+volatile long encoderCount3 = 0;
+volatile long encoderCount4 = 0;
+
+// Counts per revolution and wheel circumference
+#define CPR 360
+#define WHEEL_CIRCUMFERENCE 20.0
+
+int baseSpeed = 200; // Default speed
+int tolerance = 5;   // Tolerance for encoder count difference
+
+void setup() {
+  // Motor control pin setup
+  pinMode(MOTOR_FL_IN1, OUTPUT);
+  pinMode(MOTOR_FL_IN2, OUTPUT);
+  pinMode(MOTOR_FR_IN1, OUTPUT);
+  pinMode(MOTOR_FR_IN2, OUTPUT);
+  pinMode(MOTOR_BL_IN1, OUTPUT);
+  pinMode(MOTOR_BL_IN2, OUTPUT);
+  pinMode(MOTOR_BR_IN1, OUTPUT);
+  pinMode(MOTOR_BR_IN2, OUTPUT);
+
+  // Encoder pin setup
+  pinMode(ENCODER1_A, INPUT);
+  pinMode(ENCODER1_B, INPUT);
+  pinMode(ENCODER2_A, INPUT);
+  pinMode(ENCODER2_B, INPUT);
+  pinMode(ENCODER3_A, INPUT);
+  pinMode(ENCODER3_B, INPUT);
+  pinMode(ENCODER4_A, INPUT);
+  pinMode(ENCODER4_B, INPUT);
+
+  // Attach interrupts
+  attachInterrupt(digitalPinToInterrupt(ENCODER1_A), updateEncoder1, CHANGE);
+  attachInterrupt(digitalPinToInterrupt(ENCODER2_A), updateEncoder2, CHANGE);
+  attachInterrupt(digitalPinToInterrupt(ENCODER3_A), updateEncoder3, CHANGE);
+  attachInterrupt(digitalPinToInterrupt(ENCODER4_A), updateEncoder4, CHANGE);
+
+  // Start serial communication with the Raspberry Pi over Serial1
+  Serial1.begin(115200);
+}
+
+void updateEncoder1() { encoderCount1 += (digitalRead(ENCODER1_A) == digitalRead(ENCODER1_B)) ? 1 : -1; }
+void updateEncoder2() { encoderCount2 += (digitalRead(ENCODER2_A) == digitalRead(ENCODER2_B)) ? 1 : -1; }
+void updateEncoder3() { encoderCount3 += (digitalRead(ENCODER3_A) == digitalRead(ENCODER3_B)) ? 1 : -1; }
+void updateEncoder4() { encoderCount4 += (digitalRead(ENCODER4_A) == digitalRead(ENCODER4_B)) ? 1 : -1; }
+
+void driveMecanum(int direction, int speed) {
+  // Adjust base speed according to the command
+  baseSpeed = speed;
+
+  switch (direction) {
+    case 1: setMotorSpeeds(baseSpeed, baseSpeed, baseSpeed, baseSpeed); break; // Forward
+    case 2: setMotorSpeeds(-baseSpeed, -baseSpeed, -baseSpeed, -baseSpeed); break; // Backward
+    case 3: setMotorSpeeds(baseSpeed, -baseSpeed, -baseSpeed, baseSpeed); break; // Strafe Right
+    case 4: setMotorSpeeds(-baseSpeed, baseSpeed, baseSpeed, -baseSpeed); break; // Strafe Left
+    case 5: setMotorSpeeds(baseSpeed, -baseSpeed, baseSpeed, -baseSpeed); break; // Rotate CW
+    case 6: setMotorSpeeds(-baseSpeed, baseSpeed, -baseSpeed, baseSpeed); break; // Rotate CCW
+    case 7: setMotorSpeeds(baseSpeed, 0, 0, baseSpeed); break; // Diagonal Forward Right
+    case 8: setMotorSpeeds(0, baseSpeed, baseSpeed, 0); break; // Diagonal Forward Left
+    case 9: setMotorSpeeds(0, -baseSpeed, -baseSpeed, 0); break; // Diagonal Backward Right
+    case 10: setMotorSpeeds(-baseSpeed, 0, 0, -baseSpeed); break; // Diagonal Backward Left
+    default: setMotorSpeeds(0, 0, 0, 0); // Stop
+  }
+}
+
+void setMotorSpeeds(int flSpeed, int frSpeed, int blSpeed, int brSpeed) {
+  controlMotor(MOTOR_FL_IN1, MOTOR_FL_IN2, flSpeed);
+  controlMotor(MOTOR_FR_IN1, MOTOR_FR_IN2, frSpeed);
+  controlMotor(MOTOR_BL_IN1, MOTOR_BL_IN2, blSpeed);
+  controlMotor(MOTOR_BR_IN1, MOTOR_BR_IN2, brSpeed);
+}
+
+void controlMotor(int in1, int in2, int speed) {
+  if (speed > 0) {
+    digitalWrite(in1, HIGH);
+    digitalWrite(in2, LOW);
+    analogWrite(in1, speed);
+  } else if (speed < 0) {
+    digitalWrite(in1, LOW);
+    digitalWrite(in2, HIGH);
+    analogWrite(in2, -speed);
+  } else {
+    digitalWrite(in1, LOW);
+    digitalWrite(in2, LOW);
+  }
+}
+
+void reportMotorStats() {
+  // Calculate distance traveled based on encoder counts
+  float distance1 = (float(encoderCount1) / CPR) * WHEEL_CIRCUMFERENCE;
+  float distance2 = (float(encoderCount2) / CPR) * WHEEL_CIRCUMFERENCE;
+  float distance3 = (float(encoderCount3) / CPR) * WHEEL_CIRCUMFERENCE;
+  float distance4 = (float(encoderCount4) / CPR) * WHEEL_CIRCUMFERENCE;
+
+  // Send encoder data to the Raspberry Pi
+  Serial1.print("Distances: ");
+  Serial1.print(distance1); Serial1.print(",");
+  Serial1.print(distance2); Serial1.print(",");
+  Serial1.print(distance3); Serial1.print(",");
+  Serial1.print(distance4); Serial1.println();
+}
+
+void loop() {
+  // Check for incoming data from the Raspberry Pi
+  if (Serial1.available() > 0) {
+    // Read direction and speed from Raspberry Pi
+    int direction = Serial1.parseInt();
+    int speed = Serial1.parseInt();
+
+    // Drive the motors based on received command
+    driveMecanum(direction, speed);
+  }
+
+  // Periodically report encoder stats
+  reportMotorStats();
+  delay(1000);  // Adjust delay as needed
+}
