@@ -1,0 +1,168 @@
+// Define motor control pins
+#define MOTOR_FL_IN1 2  // Front Left
+#define MOTOR_FL_IN2 3
+#define MOTOR_FR_IN1 4  // Front Right
+#define MOTOR_FR_IN2 5
+#define MOTOR_BL_IN1 6  // Back Left
+#define MOTOR_BL_IN2 7
+#define MOTOR_BR_IN1 8  // Back Right
+#define MOTOR_BR_IN2 9
+
+// Encoder pins
+#define ENCODER1_A 10
+#define ENCODER1_B 11
+#define ENCODER2_A 12
+#define ENCODER2_B 13
+#define ENCODER3_A 14
+#define ENCODER3_B 15
+#define ENCODER4_A 16
+#define ENCODER4_B 17
+
+// Encoder count variables
+volatile long encoderCount1 = 0;
+volatile long encoderCount2 = 0;
+volatile long encoderCount3 = 0;
+volatile long encoderCount4 = 0;
+
+// Counts per revolution and wheel circumference
+#define CPR 360
+#define WHEEL_CIRCUMFERENCE 20.0
+
+int baseSpeed = 200; // Initial base speed for all motors
+int tolerance = 5;   // Tolerance for encoder count difference
+
+void setup() {
+  // Motor control pin setup
+  pinMode(MOTOR_FL_IN1, OUTPUT);
+  pinMode(MOTOR_FL_IN2, OUTPUT);
+  pinMode(MOTOR_FR_IN1, OUTPUT);
+  pinMode(MOTOR_FR_IN2, OUTPUT);
+  pinMode(MOTOR_BL_IN1, OUTPUT);
+  pinMode(MOTOR_BL_IN2, OUTPUT);
+  pinMode(MOTOR_BR_IN1, OUTPUT);
+  pinMode(MOTOR_BR_IN2, OUTPUT);
+
+  // Encoder pin setup
+  pinMode(ENCODER1_A, INPUT);
+  pinMode(ENCODER1_B, INPUT);
+  pinMode(ENCODER2_A, INPUT);
+  pinMode(ENCODER2_B, INPUT);
+  pinMode(ENCODER3_A, INPUT);
+  pinMode(ENCODER3_B, INPUT);
+  pinMode(ENCODER4_A, INPUT);
+  pinMode(ENCODER4_B, INPUT);
+
+  // Attach interrupts
+  attachInterrupt(digitalPinToInterrupt(ENCODER1_A), updateEncoder1, CHANGE);
+  attachInterrupt(digitalPinToInterrupt(ENCODER2_A), updateEncoder2, CHANGE);
+  attachInterrupt(digitalPinToInterrupt(ENCODER3_A), updateEncoder3, CHANGE);
+  attachInterrupt(digitalPinToInterrupt(ENCODER4_A), updateEncoder4, CHANGE);
+
+  Serial.begin(115200);
+}
+
+void updateEncoder1() { encoderCount1 += (digitalRead(ENCODER1_A) == digitalRead(ENCODER1_B)) ? 1 : -1; }
+void updateEncoder2() { encoderCount2 += (digitalRead(ENCODER2_A) == digitalRead(ENCODER2_B)) ? 1 : -1; }
+void updateEncoder3() { encoderCount3 += (digitalRead(ENCODER3_A) == digitalRead(ENCODER3_B)) ? 1 : -1; }
+void updateEncoder4() { encoderCount4 += (digitalRead(ENCODER4_A) == digitalRead(ENCODER4_B)) ? 1 : -1; }
+
+void driveMecanum(int direction) {
+  int flSpeed = baseSpeed;
+  int frSpeed = baseSpeed;
+  int blSpeed = baseSpeed;
+  int brSpeed = baseSpeed;
+
+  switch (direction) {
+    case 1: // Forward
+      setMotorSpeeds(flSpeed, frSpeed, blSpeed, brSpeed);
+      break;
+    case 2: // Backward
+      setMotorSpeeds(-flSpeed, -frSpeed, -blSpeed, -brSpeed);
+      break;
+    case 3: // Strafe Right
+      setMotorSpeeds(flSpeed, -frSpeed, -blSpeed, brSpeed);
+      break;
+    case 4: // Strafe Left
+      setMotorSpeeds(-flSpeed, frSpeed, frSpeed, -blSpeed);
+      break;
+    case 5: // Rotate Clockwise
+      setMotorSpeeds(flSpeed, -frSpeed, flSpeed, -brSpeed);
+      break;
+    case 6: // Rotate Counterclockwise
+      setMotorSpeeds(-flSpeed, frSpeed, -flSpeed, brSpeed);
+      break;
+    default: // Stop
+      setMotorSpeeds(0, 0, 0, 0);
+  }
+}
+
+void setMotorSpeeds(int flSpeed, int frSpeed, int blSpeed, int brSpeed) {
+  controlMotor(MOTOR_FL_IN1, MOTOR_FL_IN2, flSpeed);
+  controlMotor(MOTOR_FR_IN1, MOTOR_FR_IN2, frSpeed);
+  controlMotor(MOTOR_BL_IN1, MOTOR_BL_IN2, blSpeed);
+  controlMotor(MOTOR_BR_IN1, MOTOR_BR_IN2, brSpeed);
+}
+
+void controlMotor(int in1, int in2, int speed) {
+  if (speed > 0) {
+    digitalWrite(in1, HIGH);
+    digitalWrite(in2, LOW);
+    analogWrite(in1, speed);
+  } else if (speed < 0) {
+    digitalWrite(in1, LOW);
+    digitalWrite(in2, HIGH);
+    analogWrite(in2, -speed);
+  } else {
+    digitalWrite(in1, LOW);
+    digitalWrite(in2, LOW);
+  }
+}
+
+void synchronizeMotors() {
+  // Calculate average encoder count
+  long averageCount = (encoderCount1 + encoderCount2 + encoderCount3 + encoderCount4) / 4;
+
+  // Adjust motor speeds if an encoder count is too far from the average
+  if (abs(encoderCount1 - averageCount) > tolerance) {
+    baseSpeed += (encoderCount1 < averageCount) ? 1 : -1;
+  }
+  if (abs(encoderCount2 - averageCount) > tolerance) {
+    baseSpeed += (encoderCount2 < averageCount) ? 1 : -1;
+  }
+  if (abs(encoderCount3 - averageCount) > tolerance) {
+    baseSpeed += (encoderCount3 < averageCount) ? 1 : -1;
+  }
+  if (abs(encoderCount4 - averageCount) > tolerance) {
+    baseSpeed += (encoderCount4 < averageCount) ? 1 : -1;
+  }
+}
+
+void reportMotorStats(int motor, long encoderCount) {
+  float positionDegrees = (float(encoderCount) / CPR) * 360.0;
+  float distanceTraveled = (float(encoderCount) / CPR) * WHEEL_CIRCUMFERENCE;
+
+  Serial.print("Motor ");
+  Serial.print(motor);
+  Serial.print(" | Position: ");
+  Serial.print(positionDegrees);
+  Serial.print(" degrees | Distance: ");
+  Serial.print(distanceTraveled);
+  Serial.println(" cm");
+}
+
+void loop() {
+  int direction = 1;  // Set this to your input (e.g., 1 for forward, 2 for backward, etc.)
+
+  driveMecanum(direction);
+
+  // Synchronize motor speeds based on encoder counts
+  synchronizeMotors();
+
+  // Report motor stats for each motor
+  reportMotorStats(1, encoderCount1);
+  reportMotorStats(2, encoderCount2);
+  reportMotorStats(3, encoderCount3);
+  reportMotorStats(4, encoderCount4);
+
+  delay(1000);
+}
