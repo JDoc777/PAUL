@@ -1,0 +1,43 @@
+import serial
+import time
+import RPi.GPIO as GPIO
+
+# Set up GPIO
+led_pin = 18  # GPIO pin for the LED on Raspberry Pi
+GPIO.setmode(GPIO.BCM)
+GPIO.setup(led_pin, GPIO.OUT)
+
+# Open the serial connection to the Arduino
+ser = serial.Serial('/dev/ttyAMA0', 115200, timeout=1)
+ser.flush()
+
+# Counter for button presses
+count = 0
+
+def update_pi_led(state):
+    GPIO.output(led_pin, state)
+
+try:
+    while True:
+        if ser.in_waiting > 0:
+            incoming = ser.read().decode('utf-8')
+
+            if incoming == 'B': # Button pressed
+                # Toggle Raspberry Pi's LED
+                update_pi_led(True)
+                time.sleep(0.1)
+                update_pi_led(False)
+
+                # Increment the button press counter and calculate binary state
+                count += 1
+                led_state = count % 8   # Wrap around every 8 (3-bit binary: 0-7)
+
+                # Send the binary count to Arduino
+                ser.write(bytes([led_state]))
+
+except KeyboardInterrupt:
+    GPIO.cleanup()
+    ser.close()
+finally:
+    GPIO.cleanup()
+    ser.close()
