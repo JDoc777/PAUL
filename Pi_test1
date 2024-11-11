@@ -26,9 +26,9 @@ try:
 
             if incoming == 'B': # Button pressed
                 # Toggle Raspberry Pi's LED
-                update_pi_led_on(True)
+                update_pi_led_on()
                 time.sleep(0.1)
-                update_pi_led_off(False)
+                update_pi_led_off()
 
                 # Increment the button press counter and calculate binary state
                 count += 1
