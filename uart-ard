@@ -1,0 +1,39 @@
+const int buttonPin = 4;      // Button connected to pin 2
+const int ledPins[] = {5, 6, 7}; // Three LEDs connected to pins 3, 4, and 5
+int buttonState = 0;           // Variable to hold the button state
+int lastButtonState = 0;
+bool buttonPressed = false;
+
+void setup() {
+    Serial.begin(115200);      // Main USB serial for the Serial Monitor
+    Serial3.begin(115200);     // Initialize Serial3 on pins 14 (TX3) and 15 (RX3)
+    pinMode(buttonPin, INPUT_PULLUP); // Set button pin as input with pullup
+    for (int i = 0; i < 3; i++) {
+        pinMode(ledPins[i], OUTPUT);  // Set LED pins as outputs
+        digitalWrite(ledPins[i], LOW); // Ensure LEDs are off
+    }
+}
+
+void loop() {
+    buttonState = digitalRead(buttonPin);  // Read the button state
+
+    if (buttonState == LOW && lastButtonState == HIGH) { // Button press detected
+        buttonPressed = true;
+    }
+    lastButtonState = buttonState;
+
+    if (buttonPressed) {
+        Serial3.write('1');    // Send 'B' to Raspberry Pi through Serial3
+        Serial.write('1');    // Send 'B' to Raspberry Pi through Serial3
+        buttonPressed = false;
+    }
+
+    // Check for data from Raspberry Pi
+    if (Serial3.available() > 0) {
+        int ledState = Serial3.read();    // Read the byte sent by the Pi
+
+        for (int i = 0; i < 3; i++) {
+            digitalWrite(ledPins[i], (ledState >> i) & 1); // Update LEDs based on binary state
+        }
+    }
+}
