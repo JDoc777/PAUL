@@ -1,6 +1,6 @@
 // Pin definitions for sonar sensors
-const int trigPins[4] = {22, 29, 25, 27};  // Trig pins for Front, Back, Left, Right
-const int echoPins[4] = {23, 28, 24, 26};  // Echo pins for Front, Back, Left, Right
+const int trigPins[4] = {22, 24, 26, 28};  // Trig pins for Front, Back, Left, Right
+const int echoPins[4] = {23, 25, 27, 29};  // Echo pins for Front, Back, Left, Right
 
 // Sonar directions
 const char* directions[4] = {"Front", "Back", "Left", "Right"};
