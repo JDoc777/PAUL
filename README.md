@@ -15,3 +15,7 @@ Raspberry Pi:
 - create a live graphical anlaysis of location and direction of robot
 - Work on virtual desktop
 - download arduino IDE to Raspberry pi
+
+Buffers:
+- Dynamic
+- Static
