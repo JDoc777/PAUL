@@ -78,11 +78,12 @@ void loop() {
   counter++;               // Increment counter
 
   // delay(100);
+  //testDirections();
 }
 
 void controlDirections() {
   // Check distances and decide movement
-  if (distances[0] > stopDistance3) { // Far from obstacle (> 20 cm)
+  if (distances[0] > stopDistance3) { // Far from obstacle (> 30 cm)
     mecanumDrive(setSpeed, setSpeed, setSpeed, setSpeed); // Full speed forward
     Serial.println("Moving forward at full speed");
   } 
