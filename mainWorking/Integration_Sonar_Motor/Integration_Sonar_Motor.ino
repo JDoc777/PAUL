@@ -1,3 +1,9 @@
+// ***************************************
+// Paul Arduino Sketch
+// Contributors: Justin Dougherty, Teddy Weaver
+// Last Update: 12/2/24 
+// ***************************************
+
 #include "Integration_Sonar_Motor.h"
 
 void setup() {
