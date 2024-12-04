@@ -68,14 +68,14 @@ void loop() {
   // Record Distances
   recordDistances();
 
-  // Motor Control
-  controlDirections();
+  // // Motor Control
+  // controlDirections();
 
-  //stopMotors(); // Stop
+  // //stopMotors(); // Stop
   
-  // Counter
-  Serial.println(counter); // Print Counter
-  counter++;               // Increment counter
+  // // Counter
+  // Serial.println(counter); // Print Counter
+  // counter++;               // Increment counter
 
   // delay(100);
   //testDirections();
