@@ -104,3 +104,15 @@ const float WHEEL_CIRCUMFERENCE_MM = PI * WHEEL_DIAMETER;  // in mm
 const float WHEEL_CIRCUMFERENCE_CM = WHEEL_CIRCUMFERENCE_MM / 10.0;  // in cm
 const float DISTANCE_PER_PULSE_CM = WHEEL_CIRCUMFERENCE_CM / PULSES_PER_REV;  // Distance traveled per pulse in cm
 //-----------------------------------------------------------------------
+
+// MPU_ADDR GYRO & ACCEL
+//-----------------------------------------------------------------------
+#include <Wire.h>    // I2C
+
+// MPU-6050 I2C address
+const int MPU_ADDR = 0x68;  // Default I2C address for MPU-6050
+
+// Raw sensor data variables
+int16_t accelX, accelY, accelZ;
+int16_t gyroX, gyroY, gyroZ;
+//-----------------------------------------------------------------------

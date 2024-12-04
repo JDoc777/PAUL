@@ -1,7 +1,7 @@
 // ***************************************
 // Paul Arduino Sketch
 // Contributors: Justin Dougherty, Teddy Weaver
-// Last Update: 12/2/24 
+// Last Update: 12/3/24 
 // ***************************************
 
 #include "Full_Integration.h"
@@ -12,6 +12,19 @@ void setup() {
   Serial.begin(9600);                                     // Initialize serial communication
 
   Serial.println("Serial Communication Transmitting");    // Serial setup message
+  //-----------------------------------------------------------------------
+
+  // GYRO I2C
+  //-----------------------------------------------------------------------
+  Wire.begin();        // Initialize I2C
+
+  // Initialize MPU-6050
+  Wire.beginTransmission(MPU_ADDR);
+  Wire.write(0x6B);  // Power management register
+  Wire.write(0);     // Wake the MPU-6050 up
+  Wire.endTransmission();
+  
+  Serial.println("MPU-6050 Initialized");     // MPU-6050 setup message
   //-----------------------------------------------------------------------
 
   // DHT SENSOR
@@ -89,6 +102,9 @@ void loop() {
   // Record Distances
   recordDistances();
 
+  // Read gyro and accelerometer data
+  readAccelGyro();
+
   encoderFL(); // Encoder 1: Front Left
   encoderRL(); // Encoder 2: Rear Left
   encoderFR(); // Encoder 3: Front Right
@@ -97,13 +113,13 @@ void loop() {
   // Motor Control
   controlDirections();
 
-  // stopMotors(); // Stop
+  //stopMotors(); // Stop
   
   // Counter
   Serial.println(counter); // Print Counter
   counter++;               // Increment counter
 
-  // delay(10);
+  // delay(100);
   //testDirections();
 }
 
@@ -114,11 +130,11 @@ void controlDirections() {
     Serial.println("Moving forward at full speed");
   } 
   else if (distances[0] > stopDistance2) { // Approaching obstacle (20-10 cm)
-    mecanumDrive(setSpeed - 25, setSpeed - 25, setSpeed - 25, setSpeed - 25); // Slow down
+    mecanumDrive(setSpeed - 50, setSpeed - 50, setSpeed - 50, setSpeed - 50); // Slow down
     Serial.println("Slowing down: Near stopDistance3");
   } 
   else if (distances[0] > stopDistance1) { // Very close to obstacle (10 cm to stop distance)
-    mecanumDrive(setSpeed - 50, setSpeed - 50, setSpeed - 50, setSpeed - 50); // Slow down more
+    mecanumDrive(setSpeed - 75, setSpeed - 75, setSpeed - 75, setSpeed - 75); // Slow down more
     Serial.println("Slowing down further: Near stopDistance2");
   } 
   else { // At stop distance
@@ -221,6 +237,43 @@ void randomTurn() {
   delay(250);
 }
 
+// Function to read accelerometer and gyroscope data
+void readAccelGyro() {
+  Wire.beginTransmission(MPU_ADDR);
+  Wire.write(0x3B);  // Starting register for accelerometer data
+  Wire.endTransmission(false);
+  Wire.requestFrom(MPU_ADDR, 14, true);  // Request 14 bytes for accel and gyro
+
+  // Read accelerometer data
+  accelX = Wire.read() << 8 | Wire.read();
+  accelY = Wire.read() << 8 | Wire.read();
+  accelZ = Wire.read() << 8 | Wire.read();
+  
+  // Skip temperature data (two bytes)
+  Wire.read();
+  Wire.read();
+  
+  // Read gyroscope data
+  gyroX = Wire.read() << 8 | Wire.read();
+  gyroY = Wire.read() << 8 | Wire.read();
+  gyroZ = Wire.read() << 8 | Wire.read();
+
+  float accelX_g = accelX / 16384.0;  // Convert to g
+  float accelY_g = accelY / 16384.0;
+  float accelZ_g = accelZ / 16384.0;
+  Serial.print("Accel X: "); Serial.print(accelX_g, 3);  // Print with 3 decimal places
+  Serial.print(" | Y: "); Serial.print(accelY_g, 3);
+  Serial.print(" | Z: "); Serial.println(accelZ_g, 3);
+  
+  // Send gyroscope data (scaled to degrees per second)
+  float gyroX_dps = gyroX / 131.0;  // Convert to degrees per second
+  float gyroY_dps = gyroY / 131.0;
+  float gyroZ_dps = gyroZ / 131.0;
+  Serial.print("Gyro X: "); Serial.print(gyroX_dps, 2);  // Print with 2 decimal places
+  Serial.print(" | Y: "); Serial.print(gyroY_dps, 2);
+  Serial.print(" | Z: "); Serial.println(gyroZ_dps, 2);
+}
+
 // Function to record distances from each sonar sensor
 void recordDistances() {
   float temperature = dht.readTemperature();      // Read Temp.
@@ -309,6 +362,14 @@ void testDirections() {
 
   // Stop all motors
   stopMotors();
+}
+
+// Read All Encoders
+void readEncoder(){
+  encoderFL(); // Encoder 1: Front Left
+  encoderRL(); // Encoder 2: Rear Left
+  encoderFR(); // Encoder 3: Front Right
+  encoderRR(); // Encoder 4: Rear Right
 }
 
 void encoderFL() {
