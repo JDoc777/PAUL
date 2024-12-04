@@ -99,28 +99,27 @@ void setup() {
 
 void loop() {
 
-  // Record Distances
+  // Read sensor data
   recordDistances();
-
-  // Read gyro and accelerometer data
   readAccelGyro();
+  readEncoder();
 
-  encoderFL(); // Encoder 1: Front Left
-  encoderRL(); // Encoder 2: Rear Left
-  encoderFR(); // Encoder 3: Front Right
-  encoderRR(); // Encoder 4: Rear Right
-
-  // Motor Control
+  // Control motors based on distance
   controlDirections();
-
-  //stopMotors(); // Stop
   
   // Counter
   Serial.println(counter); // Print Counter
   counter++;               // Increment counter
 
-  // delay(100);
-  //testDirections();
+
+  //---------------------------
+  //int testSpeed = 100;
+  //mecanumDrive(testSpeed, testSpeed, testSpeed, testSpeed); // Full speed forward
+
+  //stopMotors();     // Stop
+  // delay(100);      // Delay
+  //testDirections(); // Test Movement
+
 }
 
 void controlDirections() {

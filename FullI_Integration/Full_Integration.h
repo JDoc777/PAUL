@@ -5,11 +5,14 @@ int counter = 0;                //Serial monitor counter
 
 //SET SPEED AND STOP DISTANCE
 //-----------------------------------------------------------------------
-// CHANGE Variables [      ]
-int setSpeed = 200;             // set Speed
-int stopDistance = 15;          // Stop Distance
+// Speed Variables
+ int setSpeed = 200;             // set Speed
+// int speed = 200;             // set Speed
+// int setSpeed = map(speed, 0, 255, 50, 255);
 
-// Gradual Stop Variables
+
+// Stop Distance Variables
+int stopDistance = 15;          // Stop Distance
 int stopDistance1 = stopDistance;       // Stop Distance
 int stopDistance2 = stopDistance + 15;  // 15 cm before Stop Distance
 int stopDistance3 = stopDistance + 30;  // 30 cm before Stop Distance
