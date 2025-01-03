@@ -1,0 +1,7 @@
+  Serial3.print("Accel X: "); Serial.print(accelX_g, 3);  // Print with 3 decimal places
+  Serial3.print(" | Y: "); Serial.print(accelY_g, 3);
+  Serial3.print(" | Z: "); Serial.println(accelZ_g, 3);
+  
+  Serial3.print("Gyro X: "); Serial.print(gyroX_dps, 2);  // Print with 2 decimal places
+  Serial3.print(" | Y: "); Serial.print(gyroY_dps, 2);
+  Serial3.print(" | Z: "); Serial.println(gyroZ_dps, 2);
