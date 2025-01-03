@@ -1,1 +1,28 @@
+import serial
 
+# Configure the serial connection
+arduino_port = "/dev/ttyUSB0"  # Update this to match your Arduino's serial port
+baud_rate = 9600  # Match the baud rate used in your Arduino code
+timeout = 1  # Set a timeout in seconds for the serial read
+
+# Initialize the serial connection
+try:
+    ser = serial.Serial(arduino_port, baud_rate, timeout=timeout)
+    print(f"Connected to Arduino on {arduino_port}")
+except serial.SerialException as e:
+    print(f"Failed to connect to Arduino: {e}")
+    exit()
+
+print("Listening for data...")
+
+try:
+    while True:
+        if ser.in_waiting > 0:  # Check if there's data in the input buffer
+            data = ser.readline().decode("utf-8").strip()  # Read a line and decode it
+            print(f"Received: {data}")
+except KeyboardInterrupt:
+    print("\nExiting program.")
+
+finally:
+    ser.close()
+    print("Serial connection closed.")
