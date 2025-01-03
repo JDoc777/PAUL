@@ -1,7 +1,7 @@
 import serial
 
 # Configure the serial connection
-arduino_port = "/dev/ttyUSB0"  # Update this to match your Arduino's serial port
+arduino_port = "/dev/ttyAMA0"  # Update this to match your Arduino's serial port
 baud_rate = 9600  # Match the baud rate used in your Arduino code
 timeout = 1  # Set a timeout in seconds for the serial read
 
