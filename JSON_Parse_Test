@@ -2,7 +2,7 @@ import serial
 import json
 
 # Initialize serial connection
-arduino_port = '/dev/ttyAMA0'  # Replace with the correct port (e.g., /dev/ttyACM0 or /dev/ttyUSB0)
+arduino_port = '/dev/ttyAMA0'
 baud_rate = 115200
 ser = serial.Serial(arduino_port, baud_rate, timeout=1)
 
@@ -31,12 +31,18 @@ def read_and_parse_serial():
             accel_y = data['accel']['y']
             accel_z = data['accel']['z']
             
+            # Extract accelerometer data
+            encoderPos_1 = data['enco']['1']
+            encoderPos_2 = data['enco']['2']
+            encoderPos_3 = data['enco']['3']
+            encoderPos_4 = data['enco']['4']
+            
             # Print parsed data
             print(f"Distances - L: {distance_l}, R: {distance_r}, B: {distance_b}, F: {distance_f}")
             print(f"Gyro - X: {gyro_x}, Y: {gyro_y}, Z: {gyro_z}")
             print(f"Accel - X: {accel_x}, Y: {accel_y}, Z: {accel_z}")
+            print(f"Encoder - 1: {encoderPos_1}, 2: {encoderPos_2}, 3: {encoderPos_3}, 4: {encoderPos_4}")
             
-            # You can use the variables `distance_l`, `gyro_x`, etc., in your program
         else:
             print("No data received.")
     except json.JSONDecodeError:
