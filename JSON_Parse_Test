@@ -16,10 +16,10 @@ def read_and_parse_serial():
             data = json.loads(line)
             
             # Extract distance data
+            distance_f = data['distance']['F']
+            distance_b = data['distance']['B']
             distance_l = data['distance']['L']
             distance_r = data['distance']['R']
-            distance_b = data['distance']['B']
-            distance_f = data['distance']['F']
             
             # Extract gyro data
             gyro_x = data['gyro']['x']
