@@ -11,6 +11,8 @@ void setup() {
   //-----------------------------------------------------------------------
   Serial.begin(9600);                                     // Initialize serial communication
 
+  Serial3.begin(9600);
+
   Serial.println("Serial Communication Transmitting");    // Serial setup message
   //-----------------------------------------------------------------------
 
@@ -105,10 +107,11 @@ void loop() {
   readEncoder();
 
   // Control motors based on distance
-  controlDirections();
+  // controlDirections();
   
   // Counter
   Serial.println(counter); // Print Counter
+  Serial3.println(counter); // Print Counter
   counter++;               // Increment counter
 
 
@@ -117,7 +120,7 @@ void loop() {
   //mecanumDrive(testSpeed, testSpeed, testSpeed, testSpeed); // Full speed forward
 
   //stopMotors();     // Stop
-  // delay(100);      // Delay
+  // delay(1000);      // Delay
   //testDirections(); // Test Movement
 
 }
@@ -263,6 +266,11 @@ void readAccelGyro() {
   Serial.print("Accel X: "); Serial.print(accelX_g, 3);  // Print with 3 decimal places
   Serial.print(" | Y: "); Serial.print(accelY_g, 3);
   Serial.print(" | Z: "); Serial.println(accelZ_g, 3);
+
+  // to pi
+  Serial3.print("Accel X: "); Serial.print(accelX_g, 3);  // Print with 3 decimal places
+  Serial3.print(" | Y: "); Serial.print(accelY_g, 3);
+  Serial3.print(" | Z: "); Serial.println(accelZ_g, 3);
   
   // Send gyroscope data (scaled to degrees per second)
   float gyroX_dps = gyroX / 131.0;  // Convert to degrees per second
@@ -271,6 +279,11 @@ void readAccelGyro() {
   Serial.print("Gyro X: "); Serial.print(gyroX_dps, 2);  // Print with 2 decimal places
   Serial.print(" | Y: "); Serial.print(gyroY_dps, 2);
   Serial.print(" | Z: "); Serial.println(gyroZ_dps, 2);
+
+  // to pi
+  Serial3.print("Gyro X: "); Serial.print(gyroX_dps, 2);  // Print with 2 decimal places
+  Serial3.print(" | Y: "); Serial.print(gyroY_dps, 2);
+  Serial3.print(" | Z: "); Serial.println(gyroZ_dps, 2);
 }
 
 // Function to record distances from each sonar sensor
@@ -298,6 +311,11 @@ void recordDistances() {
     Serial.print(": ");
     Serial.print(distances[i]);
     Serial.println(" cm");
+
+    Serial3.print(directions[i]);
+    Serial3.print(": ");
+    Serial3.print(distances[i]);
+    Serial3.println(" cm");
   }
   
 }
