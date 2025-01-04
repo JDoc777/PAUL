@@ -1,3 +1,4 @@
+
 //COUNTER
 //-----------------------------------------------------------------------
 int counter = 0;                //Serial monitor counter
@@ -114,6 +115,14 @@ const float DISTANCE_PER_PULSE_CM = WHEEL_CIRCUMFERENCE_CM / PULSES_PER_REV;  //
 
 // MPU-6050 I2C address
 const int MPU_ADDR = 0x68;  // Default I2C address for MPU-6050
+
+float gyroX_dps;
+float gyroY_dps;
+float gyroZ_dps;
+
+float accelX_g;
+float accelY_g;
+float accelZ_g;
 
 // Raw sensor data variables
 int16_t accelX, accelY, accelZ;

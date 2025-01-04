@@ -1,10 +1,14 @@
+#include <ArduinoJson.h>
+
+
+
 // ***************************************
 // Paul Arduino Sketch
 // Contributors: Justin Dougherty, Teddy Weaver
 // Last Update: 12/3/24 
 // ***************************************
 
-#include "Full_Integration.h"
+#include "FullI_Integration_JSON.h"
 
 void setup() {
   // SERIAL COMUNICATION
@@ -110,9 +114,43 @@ void loop() {
   // controlDirections();
   
   // Counter
-  Serial.println(counter); // Print Counter
-  Serial3.println(counter); // Print Counter
+  // Serial.println(counter); // Print Counter
+  // Serial3.println(counter); // Print Counter
   counter++;               // Increment counter
+
+
+
+
+  StaticJsonDocument<200> doc;
+
+  // Add distance data
+  doc["distance"]["L"] = distances[0];
+  doc["distance"]["R"] = distances[1];
+  doc["distance"]["B"] = distances[2];
+  doc["distance"]["F"] = distances[3];
+
+  // Add gyroscope data
+  doc["gyro"]["x"] = gyroX_dps;
+  doc["gyro"]["y"] = gyroY_dps;
+  doc["gyro"]["z"] = gyroZ_dps;
+
+  // Add accelerometer data
+  doc["accel"]["x"] = accelX_g;
+  doc["accel"]["y"] = accelY_g;
+  doc["accel"]["z"] = accelZ_g;
+
+  // Serialize JSON and send it via Serial
+  serializeJson(doc, Serial);
+  Serial.println(); // Add a newline for easier reading
+
+  // Serialize JSON and send it via Serial
+  serializeJson(doc, Serial3);
+  Serial3.println(); // Add a newline for easier reading
+
+  delay(1000); // Delay for 1 second
+
+
+
 
 
   //---------------------------
@@ -260,30 +298,30 @@ void readAccelGyro() {
   gyroY = Wire.read() << 8 | Wire.read();
   gyroZ = Wire.read() << 8 | Wire.read();
 
-  float accelX_g = accelX / 16384.0;  // Convert to g
-  float accelY_g = accelY / 16384.0;
-  float accelZ_g = accelZ / 16384.0;
+  accelX_g = accelX / 16384.0;  // Convert to g
+  accelY_g = accelY / 16384.0;
+  accelZ_g = accelZ / 16384.0;
   Serial.print("Accel X: "); Serial.print(accelX_g, 3);  // Print with 3 decimal places
   Serial.print(" | Y: "); Serial.print(accelY_g, 3);
   Serial.print(" | Z: "); Serial.println(accelZ_g, 3);
 
-  // to pi
-  Serial3.print("Accel X: "); Serial.print(accelX_g, 3);  // Print with 3 decimal places
-  Serial3.print(" | Y: "); Serial.print(accelY_g, 3);
-  Serial3.print(" | Z: "); Serial.println(accelZ_g, 3);
+  // // to pi
+  // Serial3.print("Accel X: "); Serial.print(accelX_g, 3);  // Print with 3 decimal places
+  // Serial3.print(" | Y: "); Serial.print(accelY_g, 3);
+  // Serial3.print(" | Z: "); Serial.println(accelZ_g, 3);
   
   // Send gyroscope data (scaled to degrees per second)
-  float gyroX_dps = gyroX / 131.0;  // Convert to degrees per second
-  float gyroY_dps = gyroY / 131.0;
-  float gyroZ_dps = gyroZ / 131.0;
+  gyroX_dps = gyroX / 131.0;  // Convert to degrees per second
+  gyroY_dps = gyroY / 131.0;
+  gyroZ_dps = gyroZ / 131.0;
   Serial.print("Gyro X: "); Serial.print(gyroX_dps, 2);  // Print with 2 decimal places
   Serial.print(" | Y: "); Serial.print(gyroY_dps, 2);
   Serial.print(" | Z: "); Serial.println(gyroZ_dps, 2);
 
-  // to pi
-  Serial3.print("Gyro X: "); Serial.print(gyroX_dps, 2);  // Print with 2 decimal places
-  Serial3.print(" | Y: "); Serial.print(gyroY_dps, 2);
-  Serial3.print(" | Z: "); Serial.println(gyroZ_dps, 2);
+  // // to pi
+  // Serial3.print("Gyro X: "); Serial.print(gyroX_dps, 2);  // Print with 2 decimal places
+  // Serial3.print(" | Y: "); Serial.print(gyroY_dps, 2);
+  // Serial3.print(" | Z: "); Serial.println(gyroZ_dps, 2);
 }
 
 // Function to record distances from each sonar sensor
@@ -312,10 +350,10 @@ void recordDistances() {
     Serial.print(distances[i]);
     Serial.println(" cm");
 
-    Serial3.print(directions[i]);
-    Serial3.print(": ");
-    Serial3.print(distances[i]);
-    Serial3.println(" cm");
+    // Serial3.print(directions[i]);
+    // Serial3.print(": ");
+    // Serial3.print(distances[i]);
+    // Serial3.println(" cm");
   }
   
 }
