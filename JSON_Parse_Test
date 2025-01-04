@@ -1,0 +1,58 @@
+import serial
+import json
+
+# Initialize serial connection
+arduino_port = '/dev/ttyUSB0'  # Replace with the correct port (e.g., /dev/ttyACM0 or /dev/ttyUSB0)
+baud_rate = 9600
+ser = serial.Serial(arduino_port, baud_rate, timeout=1)
+
+def read_and_parse_serial():
+    try:
+        # Read a line of data from the serial port
+        line = ser.readline().decode('utf-8').strip()
+        
+        if line:  # Ensure the line is not empty
+            # Parse JSON data
+            data = json.loads(line)
+            
+            # Extract distance data
+            distance_l = data['distance']['L']
+            distance_r = data['distance']['R']
+            distance_b = data['distance']['B']
+            distance_f = data['distance']['F']
+            
+            # Extract gyro data
+            gyro_x = data['gyro']['x']
+            gyro_y = data['gyro']['y']
+            gyro_z = data['gyro']['z']
+            
+            # Extract accelerometer data
+            accel_x = data['accel']['x']
+            accel_y = data['accel']['y']
+            accel_z = data['accel']['z']
+            
+            # Print parsed data
+            print(f"Distances - L: {distance_l}, R: {distance_r}, B: {distance_b}, F: {distance_f}")
+            print(f"Gyro - X: {gyro_x}, Y: {gyro_y}, Z: {gyro_z}")
+            print(f"Accel - X: {accel_x}, Y: {accel_y}, Z: {accel_z}")
+            
+            # You can use the variables `distance_l`, `gyro_x`, etc., in your program
+        else:
+            print("No data received.")
+    except json.JSONDecodeError:
+        print("Error: Received invalid JSON data.")
+    except KeyError as e:
+        print(f"Error: Missing key in JSON data - {e}")
+
+def main():
+    print("Starting Raspberry Pi serial reader...")
+    try:
+        while True:
+            read_and_parse_serial()
+    except KeyboardInterrupt:
+        print("Exiting program.")
+    finally:
+        ser.close()
+
+if __name__ == "__main__":
+    main()
