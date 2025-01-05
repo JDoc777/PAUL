@@ -100,26 +100,23 @@ void setup() {
 }
 
 void loop() {
-
-  // Read sensor data
+  // Read sensor data                 // Encoders are Interupt
   recordDistances();
   readAccelGyro();
-  readEncoder();
 
+  // Send Serial data
   sendSensorData_to_Pi();
+  sendSensorData_to_Monitor();
 
-  sendSensorData_to_Monitor();  // need to add encoder data!!!
+  // Read UART input
 
-  // Control motors based on distance
-  // controlDirections();
   
   // Counter
   Serial.println(counter); // Print Counter
-  // Serial3.println(counter); // Print Counter
   counter++;               // Increment counter
 
+  //--------------------------------------------------------------------------------
 
-  //---------------------------
   //int testSpeed = 100;
   //mecanumDrive(testSpeed, testSpeed, testSpeed, testSpeed); // Full speed forward
 
@@ -129,6 +126,7 @@ void loop() {
 
 }
 
+// Serial Output On Arduino
 void sendSensorData_to_Monitor() {
   // Serial Print Distances ("Direction: Distance cm")
   Serial.println("Distances:");
@@ -148,28 +146,63 @@ void sendSensorData_to_Monitor() {
   Serial.print("Gyro X: "); Serial.print(gyroX_dps, 2);  // Print with 2 decimal places
   Serial.print(" | Y: "); Serial.print(gyroY_dps, 2);
   Serial.print(" | Z: "); Serial.println(gyroZ_dps, 2);
+
+  // Safely read shared variables
+  noInterrupts();
+  int pos1 = posi1, pos2 = posi2, pos3 = posi3, pos4 = posi4;
+  int revs1 = rotations1, revs2 = rotations2, revs3 = rotations3, revs4 = rotations4;
+  interrupts();
+
+  // Calculate distances
+  float distance1 = revs1 * WHEEL_CIRCUMFERENCE_CM;
+  float distance2 = revs2 * WHEEL_CIRCUMFERENCE_CM;
+  float distance3 = revs3 * WHEEL_CIRCUMFERENCE_CM;
+  float distance4 = revs4 * WHEEL_CIRCUMFERENCE_CM;
+
+  // Print Encoder Data
+  Serial.print("Encoder 1 - Position: "); Serial.print(pos1);
+  Serial.print(", Rotations: "); Serial.print(revs1);
+  Serial.print(", Distance Traveled (cm): "); Serial.println(distance1);
+
+  Serial.print("Encoder 2 - Position: "); Serial.print(pos2);
+  Serial.print(", Rotations: "); Serial.print(revs2);
+  Serial.print(", Distance Traveled (cm): "); Serial.println(distance2);
+
+  Serial.print("Encoder 3 - Position: "); Serial.print(pos3);
+  Serial.print(", Rotations: "); Serial.print(revs3);
+  Serial.print(", Distance Traveled (cm): "); Serial.println(distance3);
+
+  Serial.print("Encoder 4 - Position: "); Serial.print(pos4);
+  Serial.print(", Rotations: "); Serial.print(revs4);
+  Serial.print(", Distance Traveled (cm): "); Serial.println(distance4);
+
+  // Print Temp and Humidity
+  Serial.print("temperature: "); Serial.println(temperature);
+  Serial.print("Humidity: "); Serial.println(humidity);
 }
 
+// Serial3 Outut sent to Raspberry Pi
 void sendSensorData_to_Pi() {
+  // Create Json doc
   StaticJsonDocument<300> doc;
 
-  // Add distance data
+  // Distance data
   doc["distance"]["F"] = distances[0];
   doc["distance"]["B"] = distances[1];
   doc["distance"]["L"] = distances[2];
   doc["distance"]["R"] = distances[3];
 
-  // Add gyroscope data
+  // Gyroscope data
   doc["gyro"]["x"] = gyroX_dps;
   doc["gyro"]["y"] = gyroY_dps;
   doc["gyro"]["z"] = gyroZ_dps;
 
-  // Add accelerometer data
+  // Accelerometer data
   doc["accel"]["x"] = accelX_g;
   doc["accel"]["y"] = accelY_g;
   doc["accel"]["z"] = accelZ_g;
 
-  // Add encoder data
+  // Encoder data
   doc["enco"]["1"] = posi1;
   doc["enco"]["2"] = posi2;
   doc["enco"]["3"] = posi3;
@@ -177,125 +210,7 @@ void sendSensorData_to_Pi() {
 
   // Serialize JSON and send it via Serial3
   serializeJson(doc, Serial3);
-  Serial3.println(); // Add a newline for easier reading
-
-  // // Serialize JSON and send it via Serial
-  // serializeJson(doc, Serial);
-  // Serial.println(); // Add a newline for easier reading
-}
-
-void controlDirections() {
-  // Check distances and decide movement
-  if (distances[0] > stopDistance3) { // Far from obstacle (> 30 cm)
-    mecanumDrive(setSpeed, setSpeed, setSpeed, setSpeed); // Full speed forward
-    Serial.println("Moving forward at full speed");
-  } 
-  else if (distances[0] > stopDistance2) { // Approaching obstacle (20-10 cm)
-    mecanumDrive(setSpeed - 50, setSpeed - 50, setSpeed - 50, setSpeed - 50); // Slow down
-    Serial.println("Slowing down: Near stopDistance3");
-  } 
-  else if (distances[0] > stopDistance1) { // Very close to obstacle (10 cm to stop distance)
-    mecanumDrive(setSpeed - 75, setSpeed - 75, setSpeed - 75, setSpeed - 75); // Slow down more
-    Serial.println("Slowing down further: Near stopDistance2");
-  } 
-  else { // At stop distance
-    mecanumDrive(-setSpeed, -setSpeed, -setSpeed, -setSpeed); // Reverse
-    Serial.println("Reversing");
-    delay(500); // Reverse for 0.5 seconds
-
-    // Compare left and right distances to determine rotation direction
-    if (distances[3] > distances[2]) {
-      mecanumDrive(setSpeed, -setSpeed, setSpeed, -setSpeed); // Rotate clockwise
-      Serial.println("Rotating clockwise (Left is farther)");
-    } 
-    else if (distances[2] > distances[3]) {
-      mecanumDrive(-setSpeed, setSpeed, -setSpeed, setSpeed); // Rotate counterclockwise
-      Serial.println("Rotating counterclockwise (Right is farther)");
-    } 
-    else {
-      Serial.println("Distances equal, moving forward");
-    }
-
-    delay(500); // Allow time to rotate
-    mecanumDrive(setSpeed, setSpeed, setSpeed, setSpeed); // Move forward again
-    Serial.println("Moving forward after rotation");
-  }
-}
-
-// Function to drive Mecanum wheels
-// fl, fr, rl, rr: Speed for each wheel (-255 to 255)
-void mecanumDrive(int fl, int fr, int rl, int rr) {
-  currentSpeedFL = fl;
-  currentSpeedFR = fr;
-  currentSpeedRL = rl;
-  currentSpeedRR = rr;
-
-  driveMotor(ENA1, IN1, IN2, fl); // Front Left
-  driveMotor(ENB1, IN3, IN4, fr); // Front Right
-  driveMotor(ENA2, IN5, IN6, rl); // Rear Left
-  driveMotor(ENB2, IN7, IN8, rr); // Rear Right
-}
-
-// Function to control an individual motor
-// enablePin: PWM pin, inPin1/inPin2: Direction pins, speed: -255 to 255
-void driveMotor(int enablePin, int inPin1, int inPin2, int speed) {
-  if (speed > 0) {
-    digitalWrite(inPin1, HIGH);       // Forward for (+)
-    digitalWrite(inPin2, LOW);
-  } else if (speed < 0) {
-    digitalWrite(inPin1, LOW);        // Backward for (-)
-    digitalWrite(inPin2, HIGH);
-    speed = -speed;                   // Make speed positive for PWM
-  } else {
-    digitalWrite(inPin1, LOW);        // Off for (0)
-    digitalWrite(inPin2, LOW);
-  }
-
-  analogWrite(enablePin, constrain(speed, 0, 255)); // Set motor speed
-}
-
-// Function to stop all motors
-void stopMotors() {
-  mecanumDrive(0, 0, 0, 0);     // All motors stopped
-}
-
-// Function to slowly stop all motors
-void slowStop() {
-  while (currentSpeedFL != 0 || currentSpeedFR != 0 || currentSpeedRL != 0 || currentSpeedRR != 0) {
-    // Decrease speed for each wheel gradually
-    currentSpeedFL = approachZero(currentSpeedFL);
-    currentSpeedFR = approachZero(currentSpeedFR);
-    currentSpeedRL = approachZero(currentSpeedRL);
-    currentSpeedRR = approachZero(currentSpeedRR);
-
-    // Update the motor speeds
-    driveMotor(ENA1, IN1, IN2, currentSpeedFL);
-    driveMotor(ENB1, IN3, IN4, currentSpeedFR);
-    driveMotor(ENA2, IN5, IN6, currentSpeedRL);
-    driveMotor(ENB2, IN7, IN8, currentSpeedRR);
-
-    delay(25); // Small delay for smooth deceleration
-  }
-}
-
-// Helper function to approach zero gradually
-int approachZero(int speed) {
-  if (speed > 0) {
-    return max(0, speed - 10); // Decrease positive speed
-  } else if (speed < 0) {
-    return min(0, speed + 10); // Increase negative speed (towards 0)
-  }
-  return 0; // Already at zero
-}
-
-// Function to randomly turn left or right
-void randomTurn() {
-  if (random(2) == 0) {
-    mecanumDrive(-setSpeed, setSpeed, -setSpeed, setSpeed); // Turn left
-  } else {
-    mecanumDrive(setSpeed, -setSpeed, setSpeed, -setSpeed); // Turn right
-  }
-  delay(250);
+  Serial3.println(); // New line for easier reading
 }
 
 // Function to read accelerometer and gyroscope data
@@ -331,8 +246,8 @@ void readAccelGyro() {
 
 // Function to record distances from each sonar sensor
 void recordDistances() {
-  float temperature = dht.readTemperature();      // Read Temp.
-  float humidity = dht.readHumidity();            // Read Humid.
+  temperature = dht.readTemperature();      // Read Temp.
+  humidity = dht.readHumidity();            // Read Humid.
   if (isnan(temperature) || isnan(humidity)) {
     Serial.println("Error reading temperature or humidity");
     temperature = 25.0;  // Default to 25°C if DHT fails
@@ -359,146 +274,6 @@ int measureDistance(int trigPin, int echoPin, float speedOfSound) {
   long duration = pulseIn(echoPin, HIGH);
   float distance = (duration * (speedOfSound / 10000.0)) / 2.0;  // Convert to cm
   return (int)distance;
-}
-
-// Test Directions
-void testDirections() {
-  // Forward movement
-  mecanumDrive(255, 255, 255, 255); // All wheels forward at full speed
-  delay(1000);
-
-  slowStop(); // Slowly stop the motors
-  delay(1000);
-
-  // Backward movement
-  mecanumDrive(-255, -255, -255, -255); // All wheels backward at full speed
-  delay(1000);
-
-  slowStop(); // Slowly stop the motors
-  delay(1000);
-
-  // Crab walk right
-  mecanumDrive(255, -255, -255, 255); // Diagonal motion for right crab walk
-  delay(1000);
-
-  slowStop(); // Slowly stop the motors
-  delay(1000);
-
-  // Crab walk left
-  mecanumDrive(-255, 255, 255, -255); // Diagonal motion for left crab walk
-  delay(1000);
-
-  slowStop(); // Slowly stop the motors
-  delay(1000);
-
-  // Rotate clockwise
-  mecanumDrive(255, -255, 255, -255); // Opposite directions for adjacent wheels
-  delay(1000);
-
-  slowStop(); // Slowly stop the motors
-  delay(1000);
-
-  // Rotate counterclockwise
-  mecanumDrive(-255, 255, -255, 255); // Opposite directions for adjacent wheels
-  delay(1000);
-
-  slowStop(); // Slowly stop the motors
-  delay(1000);
-
-  // Stop all motors
-  stopMotors();
-}
-
-// Read All Encoders
-void readEncoder(){
-  encoderFL(); // Encoder 1: Front Left
-  encoderRL(); // Encoder 2: Rear Left
-  encoderFR(); // Encoder 3: Front Right
-  encoderRR(); // Encoder 4: Rear Right
-}
-
-void encoderFL() {
-  int pos = 0;
-  int revs = 0;
-  float distanceTraveled = 0.0;
-
-  // Safely read shared variables
-  noInterrupts();
-  pos = posi1;
-  revs = rotations1;
-  distanceTraveled = rotations1 * WHEEL_CIRCUMFERENCE_CM;
-  interrupts();
-
-  // Print Encoder 1 data
-  Serial.print("Encoder 1 - Position: ");
-  Serial.print(pos);
-  Serial.print(", Rotations: ");
-  Serial.print(revs);
-  Serial.print(", Distance Traveled (cm): ");
-  Serial.println(distanceTraveled);
-}
-
-void encoderRL() {
-  int pos = 0;
-  int revs = 0;
-  float distanceTraveled = 0.0;
-
-  // Safely read shared variables
-  noInterrupts();
-  pos = posi2;
-  revs = rotations2;
-  distanceTraveled = rotations2 * WHEEL_CIRCUMFERENCE_CM;
-  interrupts();
-
-  // Print Encoder 2 data
-  Serial.print("Encoder 2 - Position: ");
-  Serial.print(pos);
-  Serial.print(", Rotations: ");
-  Serial.print(revs);
-  Serial.print(", Distance Traveled (cm): ");
-  Serial.println(distanceTraveled);
-}
-
-void encoderFR() {
-  int pos = 0;
-  int revs = 0;
-  float distanceTraveled = 0.0;
-
-  // Safely read shared variables
-  noInterrupts();
-  pos = posi3;
-  revs = rotations3;
-  distanceTraveled = rotations3 * WHEEL_CIRCUMFERENCE_CM;
-  interrupts();
-
-  // Print Encoder 2 data
-  Serial.print("Encoder 3 - Position: ");
-  Serial.print(pos);
-  Serial.print(", Rotations: ");
-  Serial.print(revs);
-  Serial.print(", Distance Traveled (cm): ");
-  Serial.println(distanceTraveled);
-}
-
-void encoderRR() {
-  int pos = 0;
-  int revs = 0;
-  float distanceTraveled = 0.0;
-
-  // Safely read shared variables
-  noInterrupts();
-  pos = posi4;
-  revs = rotations4;
-  distanceTraveled = rotations4 * WHEEL_CIRCUMFERENCE_CM;
-  interrupts();
-
-  // Print Encoder 2 data
-  Serial.print("Encoder 4 - Position: ");
-  Serial.print(pos);
-  Serial.print(", Rotations: ");
-  Serial.print(revs);
-  Serial.print(", Distance Traveled (cm): ");
-  Serial.println(distanceTraveled);
 }
 
 void readEncoder1() {
@@ -571,4 +346,167 @@ void readEncoder4() {
     posi4 += PULSES_PER_REV;
     rotations4--;
   }
+}
+
+// Function to drive Mecanum wheels
+// fl, fr, rl, rr: Speed for each wheel (-255 to 255)
+void mecanumDrive(int fl, int fr, int rl, int rr) {
+  currentSpeedFL = fl;
+  currentSpeedFR = fr;
+  currentSpeedRL = rl;
+  currentSpeedRR = rr;
+
+  driveMotor(ENA1, IN1, IN2, fl); // Front Left
+  driveMotor(ENB1, IN3, IN4, fr); // Front Right
+  driveMotor(ENA2, IN5, IN6, rl); // Rear Left
+  driveMotor(ENB2, IN7, IN8, rr); // Rear Right
+}
+
+// Function to control an individual motor
+// enablePin: PWM pin, inPin1/inPin2: Direction pins, speed: -255 to 255
+void driveMotor(int enablePin, int inPin1, int inPin2, int speed) {
+  if (speed > 0) {
+    digitalWrite(inPin1, HIGH);       // Forward for (+)
+    digitalWrite(inPin2, LOW);
+  } else if (speed < 0) {
+    digitalWrite(inPin1, LOW);        // Backward for (-)
+    digitalWrite(inPin2, HIGH);
+    speed = -speed;                   // Make speed positive for PWM
+  } else {
+    digitalWrite(inPin1, LOW);        // Off for (0)
+    digitalWrite(inPin2, LOW);
+  }
+
+  analogWrite(enablePin, constrain(speed, 0, 255)); // Set motor speed
+}
+
+//Control Direction from arduino
+void controlDirections() {
+  // Check distances and decide movement
+  if (distances[0] > stopDistance3) { // Far from obstacle (> 30 cm)
+    mecanumDrive(setSpeed, setSpeed, setSpeed, setSpeed); // Full speed forward
+    Serial.println("Moving forward at full speed");
+  } 
+  else if (distances[0] > stopDistance2) { // Approaching obstacle (20-10 cm)
+    mecanumDrive(setSpeed - 50, setSpeed - 50, setSpeed - 50, setSpeed - 50); // Slow down
+    Serial.println("Slowing down: Near stopDistance3");
+  } 
+  else if (distances[0] > stopDistance1) { // Very close to obstacle (10 cm to stop distance)
+    mecanumDrive(setSpeed - 75, setSpeed - 75, setSpeed - 75, setSpeed - 75); // Slow down more
+    Serial.println("Slowing down further: Near stopDistance2");
+  } 
+  else { // At stop distance
+    mecanumDrive(-setSpeed, -setSpeed, -setSpeed, -setSpeed); // Reverse
+    Serial.println("Reversing");
+    delay(500); // Reverse for 0.5 seconds
+
+    // Compare left and right distances to determine rotation direction
+    if (distances[3] > distances[2]) {
+      mecanumDrive(setSpeed, -setSpeed, setSpeed, -setSpeed); // Rotate clockwise
+      Serial.println("Rotating clockwise (Left is farther)");
+    } 
+    else if (distances[2] > distances[3]) {
+      mecanumDrive(-setSpeed, setSpeed, -setSpeed, setSpeed); // Rotate counterclockwise
+      Serial.println("Rotating counterclockwise (Right is farther)");
+    } 
+    else {
+      Serial.println("Distances equal, moving forward");
+    }
+
+    delay(500); // Allow time to rotate
+    mecanumDrive(setSpeed, setSpeed, setSpeed, setSpeed); // Move forward again
+    Serial.println("Moving forward after rotation");
+  }
+}
+
+// Function to stop all motors
+void stopMotors() {
+  mecanumDrive(0, 0, 0, 0);     // All motors stopped
+}
+
+// Function to slowly stop all motors
+void slowStop() {
+  while (currentSpeedFL != 0 || currentSpeedFR != 0 || currentSpeedRL != 0 || currentSpeedRR != 0) {
+    // Decrease speed for each wheel gradually
+    currentSpeedFL = approachZero(currentSpeedFL);
+    currentSpeedFR = approachZero(currentSpeedFR);
+    currentSpeedRL = approachZero(currentSpeedRL);
+    currentSpeedRR = approachZero(currentSpeedRR);
+
+    // Update the motor speeds
+    driveMotor(ENA1, IN1, IN2, currentSpeedFL);
+    driveMotor(ENB1, IN3, IN4, currentSpeedFR);
+    driveMotor(ENA2, IN5, IN6, currentSpeedRL);
+    driveMotor(ENB2, IN7, IN8, currentSpeedRR);
+
+    delay(25); // Small delay for smooth deceleration
+  }
+}
+
+// Helper function to approach zero gradually
+int approachZero(int speed) {
+  if (speed > 0) {
+    return max(0, speed - 10); // Decrease positive speed
+  } else if (speed < 0) {
+    return min(0, speed + 10); // Increase negative speed (towards 0)
+  }
+  return 0; // Already at zero
+}
+
+// Function to randomly turn left or right
+void randomTurn() {
+  if (random(2) == 0) {
+    mecanumDrive(-setSpeed, setSpeed, -setSpeed, setSpeed); // Turn left
+  } else {
+    mecanumDrive(setSpeed, -setSpeed, setSpeed, -setSpeed); // Turn right
+  }
+  delay(250);
+}
+
+// Test Directions
+void testDirections() {
+  // Forward movement
+  mecanumDrive(255, 255, 255, 255); // All wheels forward at full speed
+  delay(1000);
+
+  slowStop(); // Slowly stop the motors
+  delay(1000);
+
+  // Backward movement
+  mecanumDrive(-255, -255, -255, -255); // All wheels backward at full speed
+  delay(1000);
+
+  slowStop(); // Slowly stop the motors
+  delay(1000);
+
+  // Crab walk right
+  mecanumDrive(255, -255, -255, 255); // Diagonal motion for right crab walk
+  delay(1000);
+
+  slowStop(); // Slowly stop the motors
+  delay(1000);
+
+  // Crab walk left
+  mecanumDrive(-255, 255, 255, -255); // Diagonal motion for left crab walk
+  delay(1000);
+
+  slowStop(); // Slowly stop the motors
+  delay(1000);
+
+  // Rotate clockwise
+  mecanumDrive(255, -255, 255, -255); // Opposite directions for adjacent wheels
+  delay(1000);
+
+  slowStop(); // Slowly stop the motors
+  delay(1000);
+
+  // Rotate counterclockwise
+  mecanumDrive(-255, 255, -255, 255); // Opposite directions for adjacent wheels
+  delay(1000);
+
+  slowStop(); // Slowly stop the motors
+  delay(1000);
+
+  // Stop all motors
+  stopMotors();
 }
