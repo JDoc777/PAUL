@@ -31,17 +31,29 @@ def read_and_parse_serial():
             accel_y = data['accel']['y']
             accel_z = data['accel']['z']
             
-            # Extract accelerometer data
-            encoderPos_1 = data['enco']['1']
-            encoderPos_2 = data['enco']['2']
-            encoderPos_3 = data['enco']['3']
-            encoderPos_4 = data['enco']['4']
+            # Extract encoder positions and rotations
+            encoderPos_1 = data['enco']['1']['position']
+            encoderPos_2 = data['enco']['2']['position']
+            encoderPos_3 = data['enco']['3']['position']
+            encoderPos_4 = data['enco']['4']['position']
+            rotation_1 = data['enco']['1']['rotation']
+            rotation_2 = data['enco']['2']['rotation']
+            rotation_3 = data['enco']['3']['rotation']
+            rotation_4 = data['enco']['4']['rotation']
+
+            # Extract environmental data
+            temperature = data['environment']['temperature']
+            humidity = data['environment']['humidity']
             
             # Print parsed data
             print(f"Distances - L: {distance_l}, R: {distance_r}, B: {distance_b}, F: {distance_f}")
             print(f"Gyro - X: {gyro_x}, Y: {gyro_y}, Z: {gyro_z}")
             print(f"Accel - X: {accel_x}, Y: {accel_y}, Z: {accel_z}")
-            print(f"Encoder - 1: {encoderPos_1}, 2: {encoderPos_2}, 3: {encoderPos_3}, 4: {encoderPos_4}")
+            print(f"Encoder 1 - Position: {encoderPos_1}, Rotation: {rotation_1}")
+            print(f"Encoder 2 - Position: {encoderPos_2}, Rotation: {rotation_2}")
+            print(f"Encoder 3 - Position: {encoderPos_3}, Rotation: {rotation_3}")
+            print(f"Encoder 4 - Position: {encoderPos_4}, Rotation: {rotation_4}")
+            print(f"Environment - Temperature: {temperature}°C, Humidity: {humidity}%")
             
         else:
             print("No data received.")
