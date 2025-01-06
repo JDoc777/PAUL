@@ -27,7 +27,7 @@ try:
     print("Starting UART communication...")
     while True:
         # Example values for FL, FR, BL, BR
-        fl = 120  # Replace with your actual value
+        fl = 222  # Replace with your actual value
         fr = -100 # Replace with your actual value
         bl = 180  # Replace with your actual value
         br = -50  # Replace with your actual value
