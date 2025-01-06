@@ -43,6 +43,12 @@ int stopDistance3 = stopDistance + 30;  // 30 cm before Stop Distance
 
 // Global Variable to Store current speed for each wheel
 int currentSpeedFL = 0, currentSpeedFR = 0, currentSpeedRL = 0, currentSpeedRR = 0;
+
+// Variables for speed from Pi
+int FL = 0;
+int FR = 0;
+int BL = 0;
+int BR = 0;
 //-----------------------------------------------------------------------
 
 

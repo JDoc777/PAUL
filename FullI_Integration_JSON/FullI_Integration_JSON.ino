@@ -105,10 +105,11 @@ void loop() {
   readAccelGyro();
 
   // Send Serial data
-  sendSensorData_to_Pi();
-  sendSensorData_to_Monitor();
+  //sendSensorData_to_Pi();
+  //sendSensorData_to_Monitor();
 
   // Read UART input
+  readSerialData();
 
   
   // Counter
@@ -184,41 +185,99 @@ void sendSensorData_to_Monitor() {
 // Serial3 Outut sent to Raspberry Pi
 void sendSensorData_to_Pi() {
   // Create Json doc
-  StaticJsonDocument<400> doc;
+  StaticJsonDocument<400> docSend;
 
   // Distance data
-  doc["distance"]["F"] = distances[0];
-  doc["distance"]["B"] = distances[1];
-  doc["distance"]["L"] = distances[2];
-  doc["distance"]["R"] = distances[3];
+  docSend["distance"]["F"] = distances[0];
+  docSend["distance"]["B"] = distances[1];
+  docSend["distance"]["L"] = distances[2];
+  docSend["distance"]["R"] = distances[3];
 
   // Gyroscope data
-  doc["gyro"]["x"] = gyroX_dps;
-  doc["gyro"]["y"] = gyroY_dps;
-  doc["gyro"]["z"] = gyroZ_dps;
+  docSend["gyro"]["x"] = gyroX_dps;
+  docSend["gyro"]["y"] = gyroY_dps;
+  docSend["gyro"]["z"] = gyroZ_dps;
 
   // Accelerometer data
-  doc["accel"]["x"] = accelX_g;
-  doc["accel"]["y"] = accelY_g;
-  doc["accel"]["z"] = accelZ_g;
+  docSend["accel"]["x"] = accelX_g;
+  docSend["accel"]["y"] = accelY_g;
+  docSend["accel"]["z"] = accelZ_g;
 
   // Encoder data
-  doc["enco"]["1"]["position"] = posi1;
-  doc["enco"]["1"]["rotation"] = rotations1;
-  doc["enco"]["2"]["position"] = posi2;
-  doc["enco"]["2"]["rotation"] = rotations2;
-  doc["enco"]["3"]["position"] = posi3;
-  doc["enco"]["3"]["rotation"] = rotations3;
-  doc["enco"]["4"]["position"] = posi4;
-  doc["enco"]["4"]["rotation"] = rotations4;
+  docSend["enco"]["1"]["position"] = posi1;
+  docSend["enco"]["1"]["rotation"] = rotations1;
+  docSend["enco"]["2"]["position"] = posi2;
+  docSend["enco"]["2"]["rotation"] = rotations2;
+  docSend["enco"]["3"]["position"] = posi3;
+  docSend["enco"]["3"]["rotation"] = rotations3;
+  docSend["enco"]["4"]["position"] = posi4;
+  docSend["enco"]["4"]["rotation"] = rotations4;
 
-  doc["environment"]["temperature"] = temperature;
-  doc["environment"]["humidity"] = humidity;
+  docSend["environment"]["temperature"] = temperature;
+  docSend["environment"]["humidity"] = humidity;
 
   // Serialize JSON and send it via Serial3
-  serializeJson(doc, Serial3);
+  serializeJson(docSend, Serial3);
   Serial3.println(); // New line for easier reading
+
+  // Flush the Serial buffer to ensure the data is sent
+  Serial3.flush();
 }
+
+static char buffer[256];  // Input buffer for serial data
+static size_t bufferIndex = 0;  // Current index in the buffer
+
+void readSerialData() {
+  // Check if data is available on Serial3
+  while (Serial3.available()) {
+    char c = Serial3.read();  // Read a byte
+
+    // If newline is encountered, process the full message
+    if (c == '\n') {  
+      buffer[bufferIndex] = '\0';  // Null-terminate the string
+
+      Serial.print("Complete message received: ");
+      Serial.println(buffer);  // Debug the full message received
+
+      // Check if the message is a valid JSON format
+      if (buffer[0] == '{' && buffer[bufferIndex - 1] == '}') {
+        // Parse the JSON data
+        StaticJsonDocument<256> doc;
+        DeserializationError error = deserializeJson(doc, buffer);
+
+        if (error) {
+          Serial.print("JSON Parse Error: ");
+          Serial.println(error.c_str());
+        } else {
+          // Extract values from JSON (add more fields as needed)
+          FL = doc["FL"] | 0;
+          FR = doc["FR"] | 0;
+          BL = doc["BL"] | 0;
+          BR = doc["BR"] | 0;
+
+          // Print received values for debugging
+          Serial.print("Parsed values: ");
+          Serial.print("FL: "); Serial.print(FL);
+          Serial.print(", FR: "); Serial.print(FR);
+          Serial.print(", BL: "); Serial.print(BL);
+          Serial.print(", BR: "); Serial.println(BR);
+        }
+      } else {
+        Serial.println("Invalid message format. Discarding...");
+      }
+
+      // Reset the buffer index for the next message
+      bufferIndex = 0;
+    } else if (bufferIndex < sizeof(buffer) - 1) {  // Prevent buffer overflow
+      buffer[bufferIndex++] = c;  // Add character to buffer
+    } else {
+      // Handle buffer overflow (optional: clear buffer or handle error)
+      bufferIndex = 0;  // Reset index to prevent overflow
+      Serial.println("Buffer overflow. Resetting.");
+    }
+  }
+}
+
 
 // Function to read accelerometer and gyroscope data
 void readAccelGyro() {
