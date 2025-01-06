@@ -184,7 +184,7 @@ void sendSensorData_to_Monitor() {
 // Serial3 Outut sent to Raspberry Pi
 void sendSensorData_to_Pi() {
   // Create Json doc
-  StaticJsonDocument<300> doc;
+  StaticJsonDocument<400> doc;
 
   // Distance data
   doc["distance"]["F"] = distances[0];
@@ -203,10 +203,17 @@ void sendSensorData_to_Pi() {
   doc["accel"]["z"] = accelZ_g;
 
   // Encoder data
-  doc["enco"]["1"] = posi1;
-  doc["enco"]["2"] = posi2;
-  doc["enco"]["3"] = posi3;
-  doc["enco"]["4"] = posi4;
+  doc["enco"]["1"]["position"] = posi1;
+  doc["enco"]["1"]["rotation"] = rotations1;
+  doc["enco"]["2"]["position"] = posi2;
+  doc["enco"]["2"]["rotation"] = rotations2;
+  doc["enco"]["3"]["position"] = posi3;
+  doc["enco"]["3"]["rotation"] = rotations3;
+  doc["enco"]["4"]["position"] = posi4;
+  doc["enco"]["4"]["rotation"] = rotations4;
+
+  doc["environment"]["temperature"] = temperature;
+  doc["environment"]["humidity"] = humidity;
 
   // Serialize JSON and send it via Serial3
   serializeJson(doc, Serial3);
