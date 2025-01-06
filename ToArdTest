@@ -29,14 +29,11 @@ try:
         # Example values for FL, FR, BL, BR
         fl = 120  # Replace with your actual value
         fr = -100 # Replace with your actual value
-        bl = 200  # Replace with your actual value
+        bl = 180  # Replace with your actual value
         br = -50  # Replace with your actual value
         
         # Send data
         send_data(fl, fr, bl, br)
-        
-        # Wait before sending the next set of values
-        time.sleep(0.5)  # Adjust based on your needs
 
 except KeyboardInterrupt:
     print("Stopping communication...")
