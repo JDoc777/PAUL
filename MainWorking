@@ -99,6 +99,9 @@ def main():
 
     try:
         while True:
+            # Read and parse incoming data
+            read_and_parse_serial()
+            
             # Example values for FL, FR, BL, BR
             fl = 222  # Replace with actual value
             fr = -100 # Replace with actual value
@@ -108,21 +111,18 @@ def main():
             # Send data periodically
             send_data(fl, fr, bl, br)
             
-            # Read and parse incoming data
-            read_and_parse_serial()
-            
             # Calculate and print iteration speed (iterations per second)
             iteration_counter += 1
             elapsed_iter_time = time.time() - start_time_iter
             if elapsed_iter_time >= 1:  # Print every 1 second
                 iterations_per_second = iteration_counter / elapsed_iter_time
-                print(f"Iteration Speed: {iterations_per_second:.2f} iterations per second")
+                print(f"****************Iteration Speed: {iterations_per_second:.2f} iterations per second")
                 print(f"Total Iterations: {iteration_counter}")
                 iteration_counter = 0
                 start_time_iter = time.time()
 
             # Sleep for a short time to allow other tasks
-            time.sleep(0.1)  # Adjust as needed for your application
+            time.sleep(0.01)  # Adjust as needed for your application
 
     except KeyboardInterrupt:
         print("Stopping communication...")
