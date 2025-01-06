@@ -29,12 +29,12 @@ ax.set_aspect('equal', adjustable='datalim')
 ax.grid(True)
 ax.legend()
 
+# List to store the plotted points
+all_points = []
+
 # Function to update the plot with walls or obstacles
 def update_environment(distances, orientation):
-    ax.clear()
-    # Draw the robot again
-    ax.add_artist(robot_circle)
-
+    global all_points
     # Convert distances to polar coordinates and rotate according to robot orientation
     sensor_data = {
         "F": distances["F"],
@@ -64,10 +64,14 @@ def update_environment(distances, orientation):
             x = distance * np.cos(np.radians(rotated_angle))
             y = distance * np.sin(np.radians(rotated_angle))
             
-            # Plot the point representing the sonar sensor
-            ax.plot(x, y, 'o', label=f"{direction} Sensor")
+            # Store the point to the list
+            all_points.append((x, y))
 
-    # Set plot limits and re-draw
+    # Update the plot by plotting all the accumulated points
+    ax.clear()  # Clear previous points (but not the robot)
+    ax.add_artist(robot_circle)
+    x_vals, y_vals = zip(*all_points)  # Extract x and y coordinates
+    ax.plot(x_vals, y_vals, 'o', label="Obstacle Points")  # Plot all the points
     ax.set_xlim(-200, 200)
     ax.set_ylim(-200, 200)
     ax.set_aspect('equal', adjustable='datalim')
