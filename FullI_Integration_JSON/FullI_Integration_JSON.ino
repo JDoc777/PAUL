@@ -105,8 +105,8 @@ void loop() {
   readAccelGyro();
 
   // Send Serial data
-  //sendSensorData_to_Pi();
-  //sendSensorData_to_Monitor();
+  sendSensorData_to_Pi();
+  sendSensorData_to_Monitor();
 
   // Read UART input
   readSerialData();
