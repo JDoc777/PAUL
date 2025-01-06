@@ -20,3 +20,148 @@ error: externally-managed-environment
     sure you have python3-full installed.
     
     For more information visit http://rptl.io/venv
+
+
+
+import serial
+import json
+import time
+import matplotlib.pyplot as plt
+
+# Configure UART
+serial_port = "/dev/ttyAMA0"  # UART port
+baud_rate = 115200           # Baud rate
+
+# Initialize serial communication
+ser = serial.Serial(serial_port, baud_rate, timeout=1)
+
+# Initialize variables for tracking data transmission rate
+line_count = 0
+start_time = time.time()
+
+# Set up the plot
+plt.ion()  # Enable interactive mode
+fig, ax = plt.subplots()
+robot_radius = 10  # Radius of the robot for visualization
+
+# Draw robot at the center
+robot_circle = plt.Circle((0, 0), robot_radius, color='blue', label="Robot")
+ax.add_artist(robot_circle)
+ax.set_xlim(-200, 200)  # Set plot limits (adjust for your environment)
+ax.set_ylim(-200, 200)
+ax.set_aspect('equal', adjustable='datalim')
+ax.grid(True)
+ax.legend()
+
+# Function to update the plot with walls or obstacles
+def update_environment(distances):
+    ax.clear()
+    # Draw the robot again
+    ax.add_artist(robot_circle)
+
+    # Plot walls based on distances
+    if "F" in distances:
+        ax.plot([0, 0], [robot_radius, distances["F"]], 'r-', label="Front Wall")
+    if "B" in distances:
+        ax.plot([0, 0], [-robot_radius, -distances["B"]], 'g-', label="Back Wall")
+    if "L" in distances:
+        ax.plot([-robot_radius, -distances["L"]], [0, 0], 'b-', label="Left Wall")
+    if "R" in distances:
+        ax.plot([robot_radius, distances["R"]], [0, 0], 'm-', label="Right Wall")
+    
+    # Set plot limits and re-draw
+    ax.set_xlim(-200, 200)
+    ax.set_ylim(-200, 200)
+    ax.set_aspect('equal', adjustable='datalim')
+    ax.grid(True)
+    ax.legend()
+    plt.draw()
+    plt.pause(0.01)
+
+# Function to send JSON data
+def send_data(fl, fr, bl, br):
+    data = {
+        "FL": fl,
+        "FR": fr,
+        "BL": bl,
+        "BR": br
+    }
+    json_data = json.dumps(data)
+    ser.write((json_data + "\n").encode('utf-8'))
+
+# Function to read and parse incoming serial data
+def read_and_parse_serial():
+    global line_count, start_time
+    try:
+        line = ser.readline().decode('utf-8').strip()
+        if line:
+            line_count += 1
+            data = json.loads(line)
+            
+            # Extract distance data
+            distances = {
+                "F": data['distance']['F'],
+                "B": data['distance']['B'],
+                "L": data['distance']['L'],
+                "R": data['distance']['R']
+            }
+            
+            # Display distances
+            print(f"Distances - F: {distances['F']} B: {distances['B']} L: {distances['L']} R: {distances['R']}")
+            
+            # Update the plot
+            update_environment(distances)
+
+            # Calculate transmission rate every 5 seconds
+            elapsed_time = time.time() - start_time
+            if elapsed_time >= 5:
+                transmission_rate = line_count / elapsed_time
+                print(f"Transmission Rate: {transmission_rate:.2f} lines/sec")
+                line_count = 0
+                start_time = time.time()
+        else:
+            print("No data received.")
+    except json.JSONDecodeError:
+        print("Invalid JSON received.")
+    except KeyError as e:
+        print(f"Missing data in JSON: {e}")
+
+# Main loop to send and receive data
+def main():
+    print("Starting UART communication and plotting...")
+    iteration_counter = 0
+    start_time_iter = time.time()
+
+    try:
+        while True:
+            # Read and parse incoming data
+            read_and_parse_serial()
+            
+            # Example values for FL, FR, BL, BR to send
+            fl = 222  # Replace with actual value
+            fr = -100 # Replace with actual value
+            bl = 180  # Replace with actual value
+            br = -50  # Replace with actual value
+            
+            # Send data periodically
+            send_data(fl, fr, bl, br)
+            
+            # Calculate and print iteration speed (iterations per second)
+            iteration_counter += 1
+            elapsed_iter_time = time.time() - start_time_iter
+            if elapsed_iter_time >= 1:  # Print every 1 second
+                iterations_per_second = iteration_counter / elapsed_iter_time
+                print(f"Iteration Speed: {iterations_per_second:.2f} iterations/sec")
+                iteration_counter = 0
+                start_time_iter = time.time()
+
+            # Sleep for a short time to allow other tasks
+            time.sleep(0.01)
+
+    except KeyboardInterrupt:
+        print("Stopping communication and plotting...")
+    finally:
+        ser.close()
+
+if __name__ == "__main__":
+    main()
