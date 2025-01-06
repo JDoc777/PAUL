@@ -42,6 +42,13 @@ def update_environment(distances, orientation):
         "L": distances["L"],
         "R": distances["R"]
     }
+
+    # Rotation matrix to rotate a point by orientation (in degrees)
+    def rotate_point(x, y, theta):
+        theta_rad = np.radians(theta)  # Convert angle to radians
+        x_rot = x * np.cos(theta_rad) - y * np.sin(theta_rad)
+        y_rot = x * np.sin(theta_rad) + y * np.cos(theta_rad)
+        return x_rot, y_rot
     
     # Plot the sonar sensor points, applying the orientation rotation
     for direction, distance in sensor_data.items():
@@ -63,9 +70,12 @@ def update_environment(distances, orientation):
             # Convert polar coordinates (distance, angle) to Cartesian coordinates
             x = distance * np.cos(np.radians(rotated_angle))
             y = distance * np.sin(np.radians(rotated_angle))
-            
-            # Store the point to the list
-            all_points.append((x, y))
+
+            # Rotate the point based on the robot's orientation
+            x_rot, y_rot = rotate_point(x, y, orientation)
+
+            # Store the rotated point to the list
+            all_points.append((x_rot, y_rot))
 
     # Update the plot by plotting all the accumulated points
     ax.clear()  # Clear previous points (but not the robot)
