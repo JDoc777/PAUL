@@ -1,0 +1,139 @@
+import serial
+import json
+import time
+import matplotlib.pyplot as plt
+import numpy as np
+
+# Configure UART
+serial_port = "/dev/ttyAMA0"  # UART port
+baud_rate = 115200           # Baud rate
+
+# Initialize serial communication
+ser = serial.Serial(serial_port, baud_rate, timeout=1)
+
+# Initialize variables for tracking data transmission rate
+line_count = 0
+start_time = time.time()
+
+# Initialize graph data
+x_coords = []
+y_coords = []
+
+# Function to send JSON data
+def send_data(fl, fr, bl, br):
+    # Create a dictionary with the variables
+    data = {
+        "FL": fl,
+        "FR": fr,
+        "BL": bl,
+        "BR": br
+    }
+    # Convert dictionary to JSON string
+    json_data = json.dumps(data)
+    # Send JSON string over UART
+    ser.write((json_data + "\n").encode('utf-8'))
+
+# Function to read and parse incoming serial data
+def read_and_parse_serial():
+    global line_count, start_time, x_coords, y_coords
+    try:
+        # Read a line of data from the serial port
+        line = ser.readline().decode('utf-8').strip()
+        
+        if line:  # Ensure the line is not empty
+            line_count += 1  # Increment the line counter
+
+            # Parse JSON data
+            data = json.loads(line)
+            
+            # Extract distances
+            distance_f = data['distance']['F']
+            distance_b = data['distance']['B']
+            distance_l = data['distance']['L']
+            distance_r = data['distance']['R']
+            
+            # Compute x, y coordinates for plotting
+            angles = [0, 90, 180, 270]  # F, L, B, R
+            distances = [distance_f, distance_l, distance_b, distance_r]
+
+            for angle, distance in zip(angles, distances):
+                # Convert polar to Cartesian
+                rad_angle = np.radians(angle)
+                x_coords.append(distance * np.cos(rad_angle))
+                y_coords.append(distance * np.sin(rad_angle))
+
+            # Update graph
+            update_graph()
+
+            # Print parsed data
+            print(f"Distances - L: {distance_l}, R: {distance_r}, B: {distance_b}, F: {distance_f}")
+
+            # Calculate and display transmission rate every 5 seconds
+            elapsed_time = time.time() - start_time
+            if elapsed_time >= 5:
+                transmission_rate = line_count / elapsed_time  # Lines per second
+                print(f"Data Transmission Rate: {transmission_rate:.2f} lines per second")
+                line_count = 0
+                start_time = time.time()
+            
+        else:
+            print("No data received.")
+    except json.JSONDecodeError:
+        print("Error: Received invalid JSON data.")
+    except KeyError as e:
+        print(f"Error: Missing key in JSON data - {e}")
+
+# Function to update the graph
+def update_graph():
+    plt.clf()  # Clear the current figure
+    plt.scatter(x_coords, y_coords, c='blue', marker='o')
+    plt.title("2D Map of Robot's Environment")
+    plt.xlabel("X (cm)")
+    plt.ylabel("Y (cm)")
+    plt.xlim(-200, 200)  # Set limits based on expected distances
+    plt.ylim(-200, 200)
+    plt.grid(True)
+    plt.pause(0.01)  # Pause briefly to update the plot
+
+# Main loop to send and receive data
+def main():
+    print("Starting UART communication...")
+    plt.ion()  # Enable interactive mode for live graphing
+    iteration_counter = 0  # Counter for iterations
+    start_time_iter = time.time()  # Track start time for iteration speed calculation
+
+    try:
+        while True:
+            # Read and parse incoming data
+            read_and_parse_serial()
+            
+            # Example values for FL, FR, BL, BR
+            fl = 222  # Replace with actual value
+            fr = -100 # Replace with actual value
+            bl = 180  # Replace with actual value
+            br = -50  # Replace with actual value
+            
+            # Send data periodically
+            send_data(fl, fr, bl, br)
+            
+            # Calculate and print iteration speed (iterations per second)
+            iteration_counter += 1
+            elapsed_iter_time = time.time() - start_time_iter
+            if elapsed_iter_time >= 1:  # Print every 1 second
+                iterations_per_second = iteration_counter / elapsed_iter_time
+                print(f"****************Iteration Speed: {iterations_per_second:.2f} iterations per second")
+                print(f"Total Iterations: {iteration_counter}")
+                iteration_counter = 0
+                start_time_iter = time.time()
+
+            # Sleep for a short time to allow other tasks
+            time.sleep(0.01)  # Adjust as needed for your application
+
+    except KeyboardInterrupt:
+        print("Stopping communication...")
+    finally:
+        plt.ioff()  # Turn off interactive mode
+        ser.close()
+
+if __name__ == "__main__":
+    main()
