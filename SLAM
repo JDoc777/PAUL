@@ -32,9 +32,13 @@ ax.legend()
 # List to store the plotted points
 all_points = []
 
+# Initialize orientation (yaw)
+orientation = 0  # Start at 0 degrees
+prev_time = time.time()  # Store the previous timestamp for time-based integration
+
 # Function to update the plot with walls or obstacles
-def update_environment(distances, orientation):
-    global all_points
+def update_environment(distances):
+    global all_points, orientation
     # Convert distances to polar coordinates and rotate according to robot orientation
     sensor_data = {
         "F": distances["F"],
@@ -103,7 +107,7 @@ def send_data(fl, fr, bl, br):
 
 # Function to read and parse incoming serial data
 def read_and_parse_serial():
-    global line_count, start_time
+    global line_count, start_time, orientation, prev_time
     try:
         line = ser.readline().decode('utf-8').strip()
         if line:
@@ -119,25 +123,28 @@ def read_and_parse_serial():
             }
 
             # Extract accelerometer and gyroscope data to calculate orientation
-            gyro_x = data['gyro']['x']
-            gyro_y = data['gyro']['y']
-            gyro_z = data['gyro']['z']
+            gyro_z = data['gyro']['z']  # Gyro in degrees per second
 
-            accel_x = data['accel']['x']
-            accel_y = data['accel']['y']
-            accel_z = data['accel']['z']
+            # Get current time to calculate time elapsed
+            current_time = time.time()
+            delta_time = current_time - prev_time
+            prev_time = current_time
 
-            # Here we can use a simple approach: Use the gyro data to track orientation (integrating over time)
-            # For simplicity, assume gyro_z gives the angular velocity in the Z direction
-            # Orientation in degrees (this is a simplified estimation)
-            orientation = gyro_z * 0.1  # You may need to adjust this factor based on your gyro sensitivity
+            # Update orientation by integrating the gyro data (in degrees per second)
+            orientation += gyro_z * delta_time  # Integrate angular velocity
 
-            # Print distances for debugging
+            # Normalize orientation to keep it within 0-360 degrees
+            if orientation >= 360:
+                orientation -= 360
+            elif orientation < 0:
+                orientation += 360
+
+            # Print distances and orientation for debugging
             print(f"Distances - F: {distances['F']} B: {distances['B']} L: {distances['L']} R: {distances['R']}")
             print(f"Orientation: {orientation}°")
             
             # Update the plot with the new sensor data and orientation
-            update_environment(distances, orientation)
+            update_environment(distances)
 
             # Calculate transmission rate every 5 seconds
             elapsed_time = time.time() - start_time
