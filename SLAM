@@ -36,6 +36,24 @@ all_points = []
 orientation = 0  # Start at 0 degrees
 prev_time = time.time()  # Store the previous timestamp for time-based integration
 
+# Encoder wheel data initialization
+encoder_FL = 0
+encoder_FR = 0
+encoder_BL = 0
+encoder_BR = 0
+previous_encoder_FL = 0
+previous_encoder_FR = 0
+previous_encoder_BL = 0
+previous_encoder_BR = 0
+wheel_radius = 0.05  # Example wheel radius in meters (adjust based on actual robot)
+encoder_ticks_per_rev = 360  # Example encoder ticks per revolution (adjust as needed)
+
+# Function to calculate velocity from encoder data
+def get_velocity_change(encoder_ticks, previous_ticks):
+    wheel_circumference = 2 * np.pi * wheel_radius
+    distance_travelled = (encoder_ticks - previous_ticks) * (wheel_circumference / encoder_ticks_per_rev)
+    return distance_travelled
+
 # Function to update the plot with walls or obstacles
 def update_environment(distances):
     global all_points, orientation
@@ -107,7 +125,7 @@ def send_data(fl, fr, bl, br):
 
 # Function to read and parse incoming serial data
 def read_and_parse_serial():
-    global line_count, start_time, orientation, prev_time
+    global line_count, start_time, orientation, prev_time, encoder_FL, encoder_FR, encoder_BL, encoder_BR, previous_encoder_FL, previous_encoder_FR, previous_encoder_BL, previous_encoder_BR
     try:
         line = ser.readline().decode('utf-8').strip()
         if line:
@@ -139,10 +157,37 @@ def read_and_parse_serial():
             elif orientation < 0:
                 orientation += 360
 
+            # Read encoder data (this should be adjusted based on the actual sensor data format)
+            encoder_FL = data['encoder']['FL']
+            encoder_FR = data['encoder']['FR']
+            encoder_BL = data['encoder']['BL']
+            encoder_BR = data['encoder']['BR']
+
+            # Get the velocity change from encoder data
+            delta_FL = get_velocity_change(encoder_FL, previous_encoder_FL)
+            delta_FR = get_velocity_change(encoder_FR, previous_encoder_FR)
+            delta_BL = get_velocity_change(encoder_BL, previous_encoder_BL)
+            delta_BR = get_velocity_change(encoder_BR, previous_encoder_BR)
+
+            # Update previous encoder ticks for the next loop
+            previous_encoder_FL = encoder_FL
+            previous_encoder_FR = encoder_FR
+            previous_encoder_BL = encoder_BL
+            previous_encoder_BR = encoder_BR
+
+            # Mecanum wheel kinematics: compute the robot's movement
+            v_x = (delta_FL + delta_FR + delta_BL + delta_BR) / 4
+            v_y = (-delta_FL + delta_FR + delta_BL - delta_BR) / 4
+            omega = (delta_FL - delta_FR + delta_BL - delta_BR) / 4
+
+            # Update the robot's position using the velocities
+            orientation += omega * delta_time
+            orientation %= 360  # Normalize orientation
+
             # Print distances and orientation for debugging
             print(f"Distances - F: {distances['F']} B: {distances['B']} L: {distances['L']} R: {distances['R']}")
             print(f"Orientation: {orientation}°")
-            
+
             # Update the plot with the new sensor data and orientation
             update_environment(distances)
 
