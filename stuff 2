@@ -1,0 +1,134 @@
+import serial
+import json
+import time
+
+# Configure UART
+serial_port = "/dev/ttyAMA0"  # UART port
+baud_rate = 115200           # Baud rate
+
+# Initialize serial communication
+ser = serial.Serial(serial_port, baud_rate, timeout=1)
+
+# Initialize variables for tracking data transmission rate
+line_count = 0
+start_time = time.time()
+
+# Function to send JSON data
+def send_data(fl, fr, bl, br):
+    # Create a dictionary with the variables
+    data = {
+        "FL": fl,
+        "FR": fr,
+        "BL": bl,
+        "BR": br
+    }
+    # Convert dictionary to JSON string
+    json_data = json.dumps(data)
+    # Send JSON string over UART
+    ser.write((json_data + "\n").encode('utf-8'))
+
+# Function to read and parse incoming serial data
+def read_and_parse_serial():
+    global line_count, start_time  # Declare start_time as global
+    try:
+        # Check if data is available before attempting to read
+        if ser.in_waiting > 0:
+            # Read a line of data from the serial port
+            line = ser.readline().decode('utf-8').strip()
+            
+            if line:  # Ensure the line is not empty
+                line_count += 1  # Increment the line counter
+
+                # Parse JSON data
+                data = json.loads(line)
+                
+                # Extract various sensor data (adjust to match your actual structure)
+                distance_f = data['distance']['F']
+                distance_b = data['distance']['B']
+                distance_l = data['distance']['L']
+                distance_r = data['distance']['R']
+                
+                gyro_x = data['gyro']['x']
+                gyro_y = data['gyro']['y']
+                gyro_z = data['gyro']['z']
+                
+                accel_x = data['accel']['x']
+                accel_y = data['accel']['y']
+                accel_z = data['accel']['z']
+                
+                encoderPos_1 = data['enco']['1']['position']
+                encoderPos_2 = data['enco']['2']['position']
+                encoderPos_3 = data['enco']['3']['position']
+                encoderPos_4 = data['enco']['4']['position']
+                rotation_1 = data['enco']['1']['rotation']
+                rotation_2 = data['enco']['2']['rotation']
+                rotation_3 = data['enco']['3']['rotation']
+                rotation_4 = data['enco']['4']['rotation']
+
+                temperature = data['environment']['temperature']
+                humidity = data['environment']['humidity']
+                
+                # Print parsed data
+                print(f"Distances - L: {distance_l}, R: {distance_r}, B: {distance_b}, F: {distance_f}")
+                print(f"Gyro - X: {gyro_x}, Y: {gyro_y}, Z: {gyro_z}")
+                print(f"Accel - X: {accel_x}, Y: {accel_y}, Z: {accel_z}")
+                print(f"Encoder 1 - Position: {encoderPos_1}, Rotation: {rotation_1}")
+                print(f"Encoder 2 - Position: {encoderPos_2}, Rotation: {rotation_2}")
+                print(f"Encoder 3 - Position: {encoderPos_3}, Rotation: {rotation_3}")
+                print(f"Encoder 4 - Position: {encoderPos_4}, Rotation: {rotation_4}")
+                print(f"Environment - Temperature: {temperature}°C, Humidity: {humidity}%")
+
+                # Calculate and display transmission rate every 5 seconds
+                elapsed_time = time.time() - start_time
+                if elapsed_time >= 5:
+                    transmission_rate = line_count / elapsed_time  # Lines per second
+                    print(f"Data Transmission Rate: {transmission_rate:.2f} lines per second")
+                    line_count = 0
+                    start_time = time.time()
+            else:
+                print("No data received.")
+    except json.JSONDecodeError:
+        print("Error: Received invalid JSON data.")
+    except KeyError as e:
+        print(f"Error: Missing key in JSON data - {e}")
+
+# Main loop to send and receive data
+def main():
+    print("Starting UART communication...")
+    iteration_counter = 0  # Counter for iterations
+    start_time_iter = time.time()  # Track start time for iteration speed calculation
+
+    try:
+        while True:
+            # Read and parse incoming data
+            read_and_parse_serial()
+            
+            # Example values for FL, FR, BL, BR
+            fl = 222  # Replace with actual value
+            fr = -100 # Replace with actual value
+            bl = 180  # Replace with actual value
+            br = -50  # Replace with actual value
+            
+            # Send data periodically
+            send_data(fl, fr, bl, br)
+            
+            # Calculate and print iteration speed (iterations per second)
+            iteration_counter += 1
+            elapsed_iter_time = time.time() - start_time_iter
+            if elapsed_iter_time >= 1:  # Print every 1 second
+                iterations_per_second = iteration_counter / elapsed_iter_time
+                print(f"****************Iteration Speed: {iterations_per_second:.2f} iterations per second")
+                print(f"Total Iterations: {iteration_counter}")
+                iteration_counter = 0
+                start_time_iter = time.time()
+
+            # Sleep for a short time to allow other tasks
+            time.sleep(0.01)  # Adjust as needed for your application
+
+    except KeyboardInterrupt:
+        print("Stopping communication...")
+    finally:
+        ser.close()
+
+if __name__ == "__main__":
+    main()
