@@ -9,6 +9,9 @@ baud_rate = 250000           # Baud rate
 # Initialize serial communication
 ser = serial.Serial(serial_port, baud_rate, timeout=1)
 
+# Global execution counter
+execution_counter = 0  # Counter to track how many times the code has run
+
 # Function to send JSON data
 def send_data(fl, fr, bl, br):
     # Create a dictionary with the variables
@@ -33,8 +36,6 @@ def read_and_parse_serial():
             line = ser.readline().decode('utf-8').strip()
             
             if line:  # Ensure the line is not empty
-                
-
                 # Parse JSON data
                 data = json.loads(line)
                 
@@ -84,6 +85,7 @@ def read_and_parse_serial():
 
 # Main loop to send and receive data
 def main():
+    global execution_counter  # Access the global execution counter
     print("Starting UART communication...")
     iteration_counter = 0  # Counter for iterations
     start_time_iter = time.time()  # Track start time for iteration speed calculation
@@ -111,8 +113,11 @@ def main():
                 print(f"Total Iterations: {iteration_counter}")
                 iteration_counter = 0
                 start_time_iter = time.time()
-                
             
+            # Increment execution counter and print it every 5 iterations
+            execution_counter += 1
+            if execution_counter % 5 == 0:
+                print(f"Code executed {execution_counter} times")
 
             # Sleep for a short time to allow other tasks
             time.sleep(0.001)  # Adjust as needed for your application
