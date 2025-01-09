@@ -11,7 +11,7 @@ void setup() {
   //-----------------------------------------------------------------------
   Serial.begin(9600);              // Initialize serial 9600 communication
 
-  Serial3.begin(115200);           // Initialize serial 115200 communication
+  Serial3.begin(250000);           // Initialize serial 115200 communication
 
   Serial.println("Serial Communication Transmitting");    // Serial setup message
   //-----------------------------------------------------------------------
@@ -224,24 +224,43 @@ void sendSensorData_to_Pi() {
   Serial3.flush();
 }
 
-static char buffer[256];  // Input buffer for serial data
-static size_t bufferIndex = 0;  // Current index in the buffer
-
 void readSerialData() {
-  // Check if data is available on Serial3
+  static char buffer[256];  // Buffer to hold incoming message
+  static int bufferIndex = 0;  // Pointer for buffer
+
+  // Check if data is available to read
   while (Serial3.available()) {
-    char c = Serial3.read();  // Read a byte
+    char c = Serial3.read();  // Read a byte from the serial buffer
 
-    // If newline is encountered, process the full message
-    if (c == '\n') {  
+    // Ignore any whitespace or newlines before the actual message
+    if (c == '\n' || c == '\r' || c == ' ') {
+      continue;
+    }
+
+    // If we see a '{' and it's a valid starting point, reset buffer to start a new message
+    if (c == '{' && bufferIndex > 0) {
+      // If there's already an incomplete message, discard the old one
+      bufferIndex = 0;  
+    }
+
+    // Add the character to the buffer if space is available
+    if (bufferIndex < sizeof(buffer) - 1) {
+      buffer[bufferIndex++] = c;
+    } else {
+      // Handle buffer overflow: reset it if necessary
+      Serial.println("Buffer overflow. Resetting.");
+      bufferIndex = 0;
+    }
+
+    // If we reach the end of the message (closing '}'), process the message
+    if (c == '}') {
       buffer[bufferIndex] = '\0';  // Null-terminate the string
+      Serial.print("Received message: ");
+      Serial.println(buffer);  // Print the received message for debugging
 
-      Serial.print("Complete message received: ");
-      Serial.println(buffer);  // Debug the full message received
-
-      // Check if the message is a valid JSON format
+      // Check for the valid message format
       if (buffer[0] == '{' && buffer[bufferIndex - 1] == '}') {
-        // Parse the JSON data
+        // Attempt to parse the JSON message
         StaticJsonDocument<256> doc;
         DeserializationError error = deserializeJson(doc, buffer);
 
@@ -249,13 +268,13 @@ void readSerialData() {
           Serial.print("JSON Parse Error: ");
           Serial.println(error.c_str());
         } else {
-          // Extract values from JSON (add more fields as needed)
+          // Successfully parsed the message
           FL = doc["FL"] | 0;
           FR = doc["FR"] | 0;
           BL = doc["BL"] | 0;
           BR = doc["BR"] | 0;
 
-          // Print received values for debugging
+          // Print the parsed values for debugging
           Serial.print("Parsed values: ");
           Serial.print("FL: "); Serial.print(FL);
           Serial.print(", FR: "); Serial.print(FR);
@@ -263,20 +282,17 @@ void readSerialData() {
           Serial.print(", BR: "); Serial.println(BR);
         }
       } else {
+        // If the message is malformed, discard it
         Serial.println("Invalid message format. Discarding...");
       }
 
-      // Reset the buffer index for the next message
+      // Reset the buffer and index after processing the message
       bufferIndex = 0;
-    } else if (bufferIndex < sizeof(buffer) - 1) {  // Prevent buffer overflow
-      buffer[bufferIndex++] = c;  // Add character to buffer
-    } else {
-      // Handle buffer overflow (optional: clear buffer or handle error)
-      bufferIndex = 0;  // Reset index to prevent overflow
-      Serial.println("Buffer overflow. Resetting.");
     }
   }
 }
+
+
 
 
 // Function to read accelerometer and gyroscope data
