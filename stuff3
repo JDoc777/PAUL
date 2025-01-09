@@ -1,0 +1,231 @@
+import serial
+import json
+import time
+import math
+
+# Configure UART
+serial_port = "/dev/ttyAMA0"  # UART port
+baud_rate = 250000           # Baud rate
+
+# Initialize serial communication
+ser = serial.Serial(serial_port, baud_rate, timeout=1)
+
+# Initialize variables for tracking data transmission rate
+line_count = 0
+start_time = time.time()
+
+# Declare global variables for sensor data
+distance_f = None
+distance_b = None
+distance_l = None
+distance_r = None
+gyro_x = None
+gyro_y = None
+gyro_z = None
+accel_x = None
+accel_y = None
+accel_z = None
+encoderPos_1 = None
+encoderPos_2 = None
+encoderPos_3 = None
+encoderPos_4 = None
+rotation_1 = None
+rotation_2 = None
+rotation_3 = None
+rotation_4 = None
+temperature = None
+humidity = None
+
+# SLAM variables
+MAP_SIZE = 100  # Example grid size
+CELL_SIZE = 0.1  # Each cell represents 0.1 meters
+map_grid = [[0 for _ in range(MAP_SIZE)] for _ in range(MAP_SIZE)]
+robot_position = [MAP_SIZE // 2, MAP_SIZE // 2]  # Start at center of map
+robot_orientation = 0  # Angle in radians
+
+# Function to send JSON data
+def send_data(fl, fr, bl, br):
+    # Create a dictionary with the variables
+    data = {
+        "FL": fl,
+        "FR": fr,
+        "BL": bl,
+        "BR": br
+    }
+    # Convert dictionary to JSON string
+    json_data = json.dumps(data)
+    # Send JSON string over UART
+    ser.write((json_data + "\n").encode('utf-8'))
+
+# Function to read and parse incoming serial data
+def read_and_parse_serial():
+    global distance_f, distance_b, distance_l, distance_r
+    global gyro_x, gyro_y, gyro_z
+    global accel_x, accel_y, accel_z
+    global encoderPos_1, encoderPos_2, encoderPos_3, encoderPos_4
+    global rotation_1, rotation_2, rotation_3, rotation_4
+    global temperature, humidity
+    global line_count, start_time  # Declare start_time as global
+    try:
+        # Read a line of data from the serial port
+        line = ser.readline().decode('utf-8').strip()
+        
+        if line:  # Ensure the line is not empty
+            line_count += 1  # Increment the line counter
+
+            # Parse JSON data
+            data = json.loads(line)
+            
+            # Extract various sensor data (adjust to match your actual structure)
+            distance_f = data['distance']['F']
+            distance_b = data['distance']['B']
+            distance_l = data['distance']['L']
+            distance_r = data['distance']['R']
+            
+            gyro_x = data['gyro']['x']
+            gyro_y = data['gyro']['y']
+            gyro_z = data['gyro']['z']
+            
+            accel_x = data['accel']['x']
+            accel_y = data['accel']['y']
+            accel_z = data['accel']['z']
+            
+            encoderPos_1 = data['enco']['1']['position']
+            encoderPos_2 = data['enco']['2']['position']
+            encoderPos_3 = data['enco']['3']['position']
+            encoderPos_4 = data['enco']['4']['position']
+            rotation_1 = data['enco']['1']['rotation']
+            rotation_2 = data['enco']['2']['rotation']
+            rotation_3 = data['enco']['3']['rotation']
+            rotation_4 = data['enco']['4']['rotation']
+
+            temperature = data['environment']['temperature']
+            humidity = data['environment']['humidity']
+            
+            # Print parsed data
+            print(f"Distances - L: {distance_l}, R: {distance_r}, B: {distance_b}, F: {distance_f}")
+            print(f"Gyro - X: {gyro_x}, Y: {gyro_y}, Z: {gyro_z}")
+            print(f"Accel - X: {accel_x}, Y: {accel_y}, Z: {accel_z}")
+            print(f"Encoder 1 - Position: {encoderPos_1}, Rotation: {rotation_1}")
+            print(f"Encoder 2 - Position: {encoderPos_2}, Rotation: {rotation_2}")
+            print(f"Encoder 3 - Position: {encoderPos_3}, Rotation: {rotation_3}")
+            print(f"Encoder 4 - Position: {encoderPos_4}, Rotation: {rotation_4}")
+            print(f"Environment - Temperature: {temperature}°C, Humidity: {humidity}%")
+
+            # Calculate and display transmission rate every 5 seconds
+            elapsed_time = time.time() - start_time
+            if elapsed_time >= 5:
+                transmission_rate = line_count / elapsed_time  # Lines per second
+                print(f"Data Transmission Rate: {transmission_rate:.2f} lines per second")
+                line_count = 0
+                start_time = time.time()
+
+        else:
+            print("No data received.")
+    except json.JSONDecodeError:
+        print("Error: Received invalid JSON data.")
+    except KeyError as e:
+        print(f"Error: Missing key in JSON data - {e}")
+
+# Function to update map based on sonar data
+def update_map():
+    global map_grid, robot_position, robot_orientation
+
+    sensor_distances = [distance_f, distance_r, distance_b, distance_l]
+    angles = [0, math.pi / 2, math.pi, -math.pi / 2]  # Angles relative to robot
+
+    for i, dist in enumerate(sensor_distances):
+        if dist is not None:
+            angle = robot_orientation + angles[i]
+            end_x = robot_position[0] + int((dist / CELL_SIZE) * math.cos(angle))
+            end_y = robot_position[1] + int((dist / CELL_SIZE) * math.sin(angle))
+
+            if 0 <= end_x < MAP_SIZE and 0 <= end_y < MAP_SIZE:
+                map_grid[end_x][end_y] = -1  # Mark as obstacle
+
+# Function to calculate wheel speeds based on SLAM
+def create_instruction():
+    global map_grid, robot_position, robot_orientation
+
+    # Define a dynamic target (e.g., some free cell in the map)
+    target_x, target_y = None, None
+    for i in range(len(map_grid)):
+        for j in range(len(map_grid[i])):
+            if map_grid[i][j] == 0:  # Free grid cell
+                target_x, target_y = i, j
+                break
+        if target_x is not None:
+            break
+
+    if target_x is None or target_y is None:
+        # No target available, stop
+        return 0, 0, 0, 0
+
+    # Calculate delta to the target
+    delta_x = target_x - robot_position[0]
+    delta_y = target_y - robot_position[1]
+
+    # Calculate angle and distance to the target
+    angle_to_target = math.atan2(delta_y, delta_x)
+    distance_to_target = math.sqrt(delta_x**2 + delta_y**2)
+
+    # Calculate angle difference
+    angle_diff = angle_to_target - robot_orientation
+
+    # Adjust wheel speeds based on angle difference and distance
+    if abs(angle_diff) > 0.1:  # Turn toward the target
+        fl = -100 if angle_diff > 0 else 100
+        fr = 100 if angle_diff > 0 else -100
+        bl = fl
+        br = fr
+    elif distance_to_target > 1:  # Move forward if not already at the target
+        fl = fr = bl = br = 200
+    else:  # Stop if at the target
+        fl = fr = bl = br = 0
+
+    return fl, fr, bl, br
+
+
+# Main loop to send and receive data
+def main():
+    print("Starting UART communication...")
+    iteration_counter = 0  # Counter for iterations
+    start_time_iter = time.time()  # Track start time for iteration speed calculation
+
+    try:
+        while True:
+            # Read and parse incoming data
+            read_and_parse_serial()
+            
+            # Update map with new sensor data
+            update_map()
+
+            # Create instruction based on SLAM logic
+            fl, fr, bl, br = create_instruction()
+            
+            # Send data periodically
+            send_data(fl, fr, bl, br)
+            print(f"Speeds Sent: FL:{fl} FR:{fr} BL:{bl} BR:{br}")
+            
+            # Calculate and print iteration speed (iterations per second)
+            iteration_counter += 1
+            elapsed_iter_time = time.time() - start_time_iter
+            if elapsed_iter_time >= 1:  # Print every 1 second
+                iterations_per_second = iteration_counter / elapsed_iter_time
+                print(f"****************Iteration Speed: {iterations_per_second:.2f} iterations per second")
+                print(f"Total Iterations: {iteration_counter}")
+                iteration_counter = 0
+                start_time_iter = time.time()
+
+
+            # Sleep for a short time to allow other task
+            time.sleep(0.01)  # Adjust as needed for your application
+
+    except KeyboardInterrupt:
+        print("Stopping communication...")
+    finally:
+        ser.close()
+
+if __name__ == "__main__":
+    main()
+
