@@ -56,11 +56,13 @@ def update_theta(gyro_z):
     last_time = current_time
 
     # Low-pass filter for gyro_z
-    angular_velocity = (gyro_z - gyro_offset)
-    angular_velocity = alpha * angular_velocity + (1 - alpha) * gyro_z
+    smoothed_gyro_z = alpha * gyro_z + (1 - alpha) * gyro_z  # Smoothing gyro_z
+    
+    # Correct for drift using smoothed gyro_z
+    angular_velocity = smoothed_gyro_z - gyro_offset
 
     # Apply small decay to reduce drift over time
-    if abs(angular_velocity) < 0.02:  # Threshold to treat as "zero velocity"
+    if abs(angular_velocity) < 0.01:  # Reduced threshold to treat as "zero velocity"
         angular_velocity = 0
 
     # Integrate angular velocity to get angle
