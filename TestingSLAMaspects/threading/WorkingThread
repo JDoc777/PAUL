@@ -4,6 +4,8 @@ import time
 import numpy as np
 import threading
 from queue import Queue, Empty
+import sys
+
 
 # Configure UART
 serial_port = "/dev/ttyAMA0"  # UART port
@@ -21,11 +23,22 @@ alpha = 0.95         # Low-pass filter weight (0.0 < alpha < 1.0)
 
 # Lock and queue for thread synchronization
 gyro_queue = Queue(maxsize=200)  # Increased queue size to hold more gyro data
+print_queue = Queue()
+
+def print_safe():
+    while True:
+        try:
+            # Try to get a message from the queue
+            message = print_queue.get(timeout=0.02)  # Adjust timeout if necessary
+            sys.stdout.write(message + '\n')  # Ensures printing with a newline
+            sys.stdout.flush()  # Force flushing immediately
+        except Empty:
+            continue  # If queue is empty, keep checking
 
 # Function to calculate gyro offset and noise threshold
 def calculate_gyro_offset(samples=200):
     global gyro_offset, gyro_threshold
-    print("Calculating gyro offset...")
+    print_queue.put("Calculating gyro offset...")
     offsets = []
     for _ in range(samples):
         if ser.in_waiting > 0:
@@ -36,9 +49,9 @@ def calculate_gyro_offset(samples=200):
                     gyro_z = data['gyro']['z']
                     offsets.append(gyro_z)
                 else:
-                    print("Gyro data not found or missing 'z' key.")
+                    print_queue.put("Gyro data not found or missing 'z' key.")
             except (json.JSONDecodeError, KeyError) as e:
-                print(f"Error parsing data: {e}")
+                print_queue.put(f"Error parsing data: {e}")
         
         time.sleep(0.01)  # Adding a small delay to avoid flooding the serial buffer
     
@@ -47,10 +60,10 @@ def calculate_gyro_offset(samples=200):
         offsets = np.array(offsets)
         gyro_offset = np.median(offsets)  # Use median for offset calculation
         gyro_threshold = np.std(offsets) * 2  # Set threshold to 2x the standard deviation
-        print(f"Gyro offset calculated: {gyro_offset}")
-        print(f"Gyro noise threshold calculated: {gyro_threshold}")
+        print_queue.put(f"Gyro offset calculated: {gyro_offset}")
+        print_queue.put(f"Gyro noise threshold calculated: {gyro_threshold}")
     else:
-        print("Failed to calculate gyro offset. No valid data received.")
+        print_queue.put("Failed to calculate gyro offset. No valid data received.")
 
 def update_theta():
     global theta, last_time, gyro_offset, gyro_threshold
@@ -88,7 +101,7 @@ def update_theta():
                 theta %= 360  # Keep theta within [0, 360) degrees
 
                 # Print the updated angle
-                print(f"Current Angle (theta): {theta:.2f} degrees")
+                print_queue.put(f"Current Angle (theta): {theta:.2f} degrees")
                 
             time.sleep(0.01)  # Shorter sleep to reduce lag
         except Empty:
@@ -101,7 +114,7 @@ def read_and_parse_serial():
                 line = ser.readline().decode('utf-8', errors='ignore').strip()  # Decode with error handling
                 
                 if line:
-                    print(f"Raw data: {line}")  # Print the raw incoming data
+                    print_queue.put(f"Raw data: {line}")  # Print the raw incoming data
                     
                     try:
                         # Parse JSON data
@@ -134,24 +147,24 @@ def read_and_parse_serial():
                         humidity = data['environment']['humidity']
                 
                         # Print parsed data
-                        print(f"Distances - L: {distance_l}, R: {distance_r}, B: {distance_b}, F: {distance_f}")
-                        print(f"Gyro - X: {gyro_x}, Y: {gyro_y}, Z: {gyro_z}")
-                        #print(f"Accel - X: {accel_x}, Y: {accel_y}, Z: {accel_z}")
-                        #print(f"Encoder 1 - Position: {encoderPos_1}, Rotation: {rotation_1}")
-                        #print(f"Encoder 2 - Position: {encoderPos_2}, Rotation: {rotation_2}")
-                        #print(f"Encoder 3 - Position: {encoderPos_3}, Rotation: {rotation_3}")
-                        #print(f"Encoder 4 - Position: {encoderPos_4}, Rotation: {rotation_4}")
-                        #print(f"Environment - Temperature: {temperature}°C, Humidity: {humidity}%")
+                        print_queue.put(f"Distances - L: {distance_l}, R: {distance_r}, B: {distance_b}, F: {distance_f}")
+                        print_queue.put(f"Gyro - X: {gyro_x}, Y: {gyro_y}, Z: {gyro_z}")
+                        print_queue.put(f"Accel - X: {accel_x}, Y: {accel_y}, Z: {accel_z}")
+                        print_queue.put(f"Encoder 1 - Position: {encoderPos_1}, Rotation: {rotation_1}")
+                        print_queue.put(f"Encoder 2 - Position: {encoderPos_2}, Rotation: {rotation_2}")
+                        print_queue.put(f"Encoder 3 - Position: {encoderPos_3}, Rotation: {rotation_3}")
+                        print_queue.put(f"Encoder 4 - Position: {encoderPos_4}, Rotation: {rotation_4}")
+                        print_queue.put(f"Environment - Temperature: {temperature}°C, Humidity: {humidity}%")
                         gyro_queue.put(gyro_z)  # Add gyro_z to the queue
                     except json.JSONDecodeError:
-                        print("Error: Received invalid JSON data.")
+                        print_queue.put("Error: Received invalid JSON data.")
                     except KeyError as e:
-                        print(f"Error: Missing key in JSON data - {e}")
+                        print_queue.put(f"Error: Missing key in JSON data - {e}")
                 else:
-                    print("No data received.")
+                    print_queue.put("No data received.")
             time.sleep(0.01)  # Reduced delay to prevent lag
         except Exception as e:
-            print(f"Error while reading serial data: {e}")
+            print_queue.put(f"Error while reading serial data: {e}")
 
 # Function to send JSON data
 def send_data():
@@ -171,12 +184,12 @@ def send_data():
         # Send JSON string over UART
         ser.write((json_data + "\n").encode('utf-8'))
         
-        print(f"Data sent: {data}")
+        print_queue.put(f"Data sent: {data}")
         time.sleep(0.05)  # Send data periodically
 
 # Main function
 def main():
-    print("Starting UART communication...")
+    print_queue.put("Starting UART communication...")
 
     # Calculate gyro offset before starting
     calculate_gyro_offset()
@@ -185,19 +198,20 @@ def main():
     read_thread = threading.Thread(target=read_and_parse_serial, daemon=True)
     write_thread = threading.Thread(target=send_data, daemon=True)
     theta_thread = threading.Thread(target=update_theta, daemon=True)
+    print_thread = threading.Thread(target=print_safe, daemon=True)
 
     read_thread.start()
     write_thread.start()
     theta_thread.start()
+    print_thread.start()
 
     try:
         while True:
             time.sleep(0.1)  # Keep the main thread alive
     except KeyboardInterrupt:
-        print("Stopping communication...")
+        print_queue.put("Stopping communication...")
     finally:
         ser.close()
 
 if __name__ == "__main__":
     main()
-
