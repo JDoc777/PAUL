@@ -207,7 +207,7 @@ def main():
 
     try:
         while True:
-            time.sleep(0.1)  # Keep the main thread alive
+            time.sleep(0.01)  # Keep the main thread alive
     except KeyboardInterrupt:
         print_queue.put("Stopping communication...")
     finally:
