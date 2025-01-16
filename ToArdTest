@@ -1,0 +1,42 @@
+import serial
+import json
+import time
+
+# Configure UART
+serial_port = "/dev/ttyAMA0"  # UART port
+baud_rate = 115200           # Baud rate
+
+# Initialize serial communication
+ser = serial.Serial(serial_port, baud_rate, timeout=1)
+
+# Function to send JSON data
+def send_data(fl, fr, bl, br):
+    # Create a dictionary with the variables
+    data = {
+        "FL": fl,
+        "FR": fr,
+        "BL": bl,
+        "BR": br
+    }
+    # Convert dictionary to JSON string
+    json_data = json.dumps(data)
+    # Send JSON string over UART
+    ser.write((json_data + "\n").encode('utf-8'))
+
+try:
+    print("Starting UART communication...")
+    while True:
+        # Example values for FL, FR, BL, BR
+        fl = 222  # Replace with your actual value
+        fr = -100 # Replace with your actual value
+        bl = 180  # Replace with your actual value
+        br = -50  # Replace with your actual value
+        
+        # Send data
+        send_data(fl, fr, bl, br)
+
+except KeyboardInterrupt:
+    print("Stopping communication...")
+finally:
+    if ser.is_open:
+        ser.close()

@@ -1,0 +1,82 @@
+import serial
+from collections import deque
+
+# Configure the serial connection
+arduino_port = "/dev/ttyAMA0"  # Update this to match your Arduino's serial port
+baud_rate = 9600  # Match the baud rate used in your Arduino code
+timeout = 1  # Set a timeout in seconds for the serial read
+
+# Initialize the serial connection
+try:
+    ser = serial.Serial(arduino_port, baud_rate, timeout=timeout)
+    print(f"Connected to Arduino on {arduino_port}")
+except serial.SerialException as e:
+    print(f"Failed to connect to Arduino: {e}")
+    exit()
+
+print("Listening for data...")
+
+# Variables to store values
+distances = {
+    "F": deque(maxlen=5),
+    "B": deque(maxlen=5),
+    "L": deque(maxlen=5),
+    "R": deque(maxlen=5),
+}
+current_values = {"F": None, "B": None, "L": None, "R": None}
+averages = {"F": None, "B": None, "L": None, "R": None}
+counter = None
+
+def calculate_average(values):
+    """Calculate the average of a list or return None if empty."""
+    return sum(values) / len(values) if values else None
+
+try:
+    while True:
+        if ser.in_waiting > 0:  # Check if there's data in the input buffer
+            raw_data = ser.readline()  # Read a line of raw data
+            try:
+                data = raw_data.decode("utf-8").strip()  # Try to decode the data
+            except UnicodeDecodeError:
+                print(f"Invalid data received: {raw_data}")
+                continue  # Skip processing invalid data
+            
+            # Process data based on prefix
+            if data.startswith("F:"):
+                value = int(data.split(":")[1].strip().replace("cm", "").strip())
+                current_values["F"] = value
+                distances["F"].append(value)
+                averages["F"] = calculate_average(distances["F"])
+            elif data.startswith("B:"):
+                value = int(data.split(":")[1].strip().replace("cm", "").strip())
+                current_values["B"] = value
+                distances["B"].append(value)
+                averages["B"] = calculate_average(distances["B"])
+            elif data.startswith("L:"):
+                value = int(data.split(":")[1].strip().replace("cm", "").strip())
+                current_values["L"] = value
+                distances["L"].append(value)
+                averages["L"] = calculate_average(distances["L"])
+            elif data.startswith("R:"):
+                value = int(data.split(":")[1].strip().replace("cm", "").strip())
+                current_values["R"] = value
+                distances["R"].append(value)
+                averages["R"] = calculate_average(distances["R"])
+            elif data.isdigit():
+                counter = int(data)
+            
+            # Print updated variables
+            print(
+                f"Counter: {counter}\n"
+                f"Front: Current: {current_values['F']} cm, Average: {averages['F']} cm\n"
+                f"Back: Current: {current_values['B']} cm, Average: {averages['B']} cm\n"
+                f"Left: Current: {current_values['L']} cm, Average: {averages['L']} cm\n"
+                f"Right: Current: {current_values['R']} cm, Average: {averages['R']} cm\n"
+            )
+except KeyboardInterrupt:
+    print("\nExiting program.")
+
+finally:
+    ser.close()
+    print("Serial connection closed.")
+

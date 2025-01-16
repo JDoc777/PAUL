@@ -1,0 +1,177 @@
+import serial
+import json
+import time
+import numpy as np
+
+# Configure UART
+serial_port = "/dev/ttyAMA0"  # UART port
+baud_rate = 250000           # Baud rate
+
+# Initialize serial communication
+ser = serial.Serial(serial_port, baud_rate, timeout=1)
+
+# Global variables for angle calculation
+theta = 0.0          # Robot's rotation angle in degrees
+gyro_offset = 0.0    # Offset to correct gyro drift
+gyro_threshold = 0.0 # Threshold to ignore small gyro values
+last_time = None     # Last timestamp for integration
+alpha = 0.95         # Low-pass filter weight (0.0 < alpha < 1.0)
+
+# Calibration parameters
+calibration_interval = 30  # Time interval (seconds) to recalibrate gyro offset
+last_calibration_time = time.time()
+
+# Function to calculate gyro offset and noise threshold
+def calculate_gyro_offset(samples=200):
+    global gyro_offset, gyro_threshold
+    print("Calculating gyro offset...")
+    offsets = []
+    for _ in range(samples):
+        if ser.in_waiting > 0:
+            line = ser.readline().decode('utf-8').strip()
+            try:
+                data = json.loads(line)
+                if 'gyro' in data and 'z' in data['gyro']:
+                    gyro_z = data['gyro']['z']
+                    offsets.append(gyro_z)
+                else:
+                    print("Gyro data not found or missing 'z' key.")
+            except (json.JSONDecodeError, KeyError) as e:
+                print(f"Error parsing data: {e}")
+        
+        # Adding a small delay to avoid flooding the serial buffer
+        time.sleep(0.01)
+    
+    if offsets:
+        # Calculate the standard deviation of the collected offsets
+        offsets = np.array(offsets)
+        gyro_offset = np.median(offsets)  # Use median for offset calculation
+        gyro_threshold = np.std(offsets) * 2  # Set threshold to 2x the standard deviation
+        print(f"Gyro offset calculated: {gyro_offset}")
+        print(f"Gyro noise threshold calculated: {gyro_threshold}")
+    else:
+        print("Failed to calculate gyro offset. No valid data received.")
+
+# Function to update the robot's rotation angle
+def update_theta(gyro_z):
+    global theta, last_time, gyro_offset, gyro_threshold
+    current_time = time.time()
+    if last_time is None:
+        last_time = current_time
+        return
+    delta_time = current_time - last_time
+    last_time = current_time
+
+    # Ignore gyro values smaller than the threshold
+    if abs(gyro_z) < gyro_threshold:
+        gyro_z = 0  # Zero out small gyro readings to ignore noise
+
+    # Low-pass filter for gyro_z (if desired)
+    smoothed_gyro_z = alpha * gyro_z + (1 - alpha) * gyro_z
+
+    # Correct for drift using smoothed gyro_z
+    angular_velocity = smoothed_gyro_z - gyro_offset
+
+    # Apply small decay to reduce drift over time
+    if abs(angular_velocity) < 0.01:  # Reduced threshold to treat as "zero velocity"
+        angular_velocity = 0
+
+    # Integrate angular velocity to get angle
+    theta += angular_velocity * delta_time
+    theta %= 360  # Keep theta within [0, 360) degrees
+
+    # Reset the angle after a full rotation
+    if abs(theta) > 360.0:
+        theta = 0  # Reset to zero after a full rotation
+
+# Function to periodically recalibrate gyro offset
+def calibrate_periodically():
+    global last_calibration_time
+    if time.time() - last_calibration_time > calibration_interval:
+        calculate_gyro_offset(samples=200)
+        last_calibration_time = time.time()
+
+# Function to read and parse incoming serial data
+def read_and_parse_serial():
+    try:
+        # Check if data is available before attempting to read
+        if ser.in_waiting > 0:
+            # Read a line of data from the serial port
+            line = ser.readline().decode('utf-8').strip()
+            
+            if line:  # Ensure the line is not empty
+                # Parse JSON data
+                data = json.loads(line)
+                
+                # Extract various sensor data
+                distance_f = data['distance']['F']
+                distance_b = data['distance']['B']
+                distance_l = data['distance']['L']
+                distance_r = data['distance']['R']
+                
+                gyro_x = data['gyro']['x']
+                gyro_y = data['gyro']['y']
+                gyro_z = data['gyro']['z']
+                
+                accel_x = data['accel']['x']
+                accel_y = data['accel']['y']
+                accel_z = data['accel']['z']
+                
+                encoderPos_1 = data['enco']['1']['position']
+                encoderPos_2 = data['enco']['2']['position']
+                encoderPos_3 = data['enco']['3']['position']
+                encoderPos_4 = data['enco']['4']['position']
+                rotation_1 = data['enco']['1']['rotation']
+                rotation_2 = data['enco']['2']['rotation']
+                rotation_3 = data['enco']['3']['rotation']
+                rotation_4 = data['enco']['4']['rotation']
+
+                temperature = data['environment']['temperature']
+                humidity = data['environment']['humidity']
+
+                # Update theta with gyro_z
+                update_theta(gyro_z)
+
+                # Print parsed data
+                print(f"Distances - L: {distance_l}, R: {distance_r}, B: {distance_b}, F: {distance_f}")
+                print(f"Gyro - X: {gyro_x}, Y: {gyro_y}, Z: {gyro_z}")
+                print(f"Accel - X: {accel_x}, Y: {accel_y}, Z: {accel_z}")
+                print(f"Encoder 1 - Position: {encoderPos_1}, Rotation: {rotation_1}")
+                print(f"Encoder 2 - Position: {encoderPos_2}, Rotation: {rotation_2}")
+                print(f"Encoder 3 - Position: {encoderPos_3}, Rotation: {rotation_3}")
+                print(f"Encoder 4 - Position: {encoderPos_4}, Rotation: {rotation_4}")
+                print(f"Environment - Temperature: {temperature}°C, Humidity: {humidity}%")
+                print(f"Current Angle (theta): {theta:.2f} degrees")
+            else:
+                print("No data received.")
+    except json.JSONDecodeError:
+        print("Error: Received invalid JSON data.")
+    except KeyError as e:
+        print(f"Error: Missing key in JSON data - {e}")
+
+# Main loop to send and receive data
+def main():
+    print("Starting UART communication...")
+
+    # Calculate gyro offset before starting
+    calculate_gyro_offset()
+
+    try:
+        while True:
+            # Recalibrate gyro periodically
+            calibrate_periodically()
+
+            # Read and parse incoming data
+            read_and_parse_serial()
+
+            # Sleep for a short time to allow other tasks
+            time.sleep(0.001)  # Adjust as needed for your application
+
+    except KeyboardInterrupt:
+        print("Stopping communication...")
+    finally:
+        ser.close()
+
+if __name__ == "__main__":
+    main()
+

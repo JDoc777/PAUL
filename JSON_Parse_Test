@@ -1,0 +1,94 @@
+import serial
+import json
+import time
+
+# Initialize serial connection
+arduino_port = '/dev/ttyAMA0'
+baud_rate = 115200
+ser = serial.Serial(arduino_port, baud_rate, timeout=1)
+
+# Initialize variables for tracking data transmission rate
+line_count = 0
+start_time = time.time()
+
+def read_and_parse_serial():
+    global line_count, start_time  # Declare start_time as global
+    try:
+        # Read a line of data from the serial port
+        line = ser.readline().decode('utf-8').strip()
+        
+        if line:  # Ensure the line is not empty
+            line_count += 1  # Increment the line counter
+
+            # Parse JSON data
+            data = json.loads(line)
+            
+            # Extract distance data
+            distance_f = data['distance']['F']
+            distance_b = data['distance']['B']
+            distance_l = data['distance']['L']
+            distance_r = data['distance']['R']
+            
+            # Extract gyro data
+            gyro_x = data['gyro']['x']
+            gyro_y = data['gyro']['y']
+            gyro_z = data['gyro']['z']
+            
+            # Extract accelerometer data
+            accel_x = data['accel']['x']
+            accel_y = data['accel']['y']
+            accel_z = data['accel']['z']
+            
+            # Extract encoder positions and rotations
+            encoderPos_1 = data['enco']['1']['position']
+            encoderPos_2 = data['enco']['2']['position']
+            encoderPos_3 = data['enco']['3']['position']
+            encoderPos_4 = data['enco']['4']['position']
+            rotation_1 = data['enco']['1']['rotation']
+            rotation_2 = data['enco']['2']['rotation']
+            rotation_3 = data['enco']['3']['rotation']
+            rotation_4 = data['enco']['4']['rotation']
+
+            # Extract environmental data
+            temperature = data['environment']['temperature']
+            humidity = data['environment']['humidity']
+            
+            # Print parsed data
+            print(f"Distances - L: {distance_l}, R: {distance_r}, B: {distance_b}, F: {distance_f}")
+            print(f"Gyro - X: {gyro_x}, Y: {gyro_y}, Z: {gyro_z}")
+            print(f"Accel - X: {accel_x}, Y: {accel_y}, Z: {accel_z}")
+            print(f"Encoder 1 - Position: {encoderPos_1}, Rotation: {rotation_1}")
+            print(f"Encoder 2 - Position: {encoderPos_2}, Rotation: {rotation_2}")
+            print(f"Encoder 3 - Position: {encoderPos_3}, Rotation: {rotation_3}")
+            print(f"Encoder 4 - Position: {encoderPos_4}, Rotation: {rotation_4}")
+            print(f"Environment - Temperature: {temperature}°C, Humidity: {humidity}%")
+
+            # Calculate and display transmission rate every 5 seconds
+            elapsed_time = time.time() - start_time
+            if elapsed_time >= 5:
+                transmission_rate = line_count / elapsed_time  # Lines per second
+                print(f"AAAAAAAAAAAAAAAAAAAData Transmission Rate: {transmission_rate:.2f} lines per second")
+                # Reset the counter and timer
+                line_count = 0
+                start_time = time.time()
+            
+        else:
+            print("No data received.")
+    except json.JSONDecodeError:
+        print("Error: Received invalid JSON data.")
+    except KeyError as e:
+        print(f"Error: Missing key in JSON data - {e}")
+
+def main():
+    print("Starting Raspberry Pi serial reader...")
+    try:
+        while True:
+            read_and_parse_serial()
+    except KeyboardInterrupt:
+        print("Exiting program.")
+    finally:
+        ser.close()
+
+if __name__ == "__main__":
+    main()
+
