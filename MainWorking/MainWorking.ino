@@ -111,6 +111,7 @@ void loop() {
   // Read UART input
   readSerialData();
 
+  mecanumDrive(FL, FR, BL, BR);
   
   // Counter
   Serial.println(counter); // Print Counter
