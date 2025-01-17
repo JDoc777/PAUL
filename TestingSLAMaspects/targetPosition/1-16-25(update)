@@ -1,0 +1,531 @@
+import serial
+import json
+import time
+import numpy as np
+import threading
+from queue import Queue, Empty
+import sys
+import math
+import matplotlib.pyplot as plt
+
+
+# Configure UART
+serial_port = "/dev/ttyAMA0"  # UART port
+baud_rate = 250000           # Baud rate
+
+# Initialize serial communication
+ser = serial.Serial(serial_port, baud_rate, timeout=1)
+
+# Global variables for angle calculation
+theta_degree = 0.0   # Robot's rotation angle in degrees
+theta_radian = 0.0   # Robot's rotation angle in degrees
+gyro_offset = 0.0    # Offset to correct gyro drift
+gyro_threshold = 0.0 # Threshold to ignore small gyro values
+last_time = None     # Last timestamp for integration
+alpha = 0.95         # Low-pass filter weight (0.0 < alpha < 1.0)
+
+# Lock and queue for thread synchronization
+gyro_queue = Queue(maxsize=200)  # Increased queue size to hold more gyro data
+print_queue = Queue()
+position_queue = Queue()
+
+# Global variables for robot's position
+robot_position = {'x': 0.0, 'y': 0.0}  # Initial position (x, y)
+
+encoder_state = {
+    'FL': {'last_encoder_pos': 0, 'last_time': time.time()},
+    'FR': {'last_encoder_pos': 0, 'last_time': time.time()},
+    'BL': {'last_encoder_pos': 0, 'last_time': time.time()},
+    'BR': {'last_encoder_pos': 0, 'last_time': time.time()}
+}
+
+# Global variable for encoder position updates (simulating sensor data)
+encoderPos_FL = 0
+encoderPos_FR = 0
+encoderPos_BL = 0
+encoderPos_BR = 0
+
+FL_send_speed = 0
+FR_send_speed = 0
+BL_send_speed = 0
+BR_send_speed = 0
+
+def update_encoder_position(wheel, current_encoder_pos):
+    """
+    Update the encoder position and calculate the time interval for a given wheel.
+    
+    :param wheel: Wheel identifier (e.g., 'FL', 'FR', 'BL', 'BR')
+    :param current_encoder_pos: Current encoder position for the wheel
+    :return: prev_pos, current_pos, delta_t
+    """
+    global encoder_state
+
+    # Get the current timestamp
+    current_time = time.time()
+
+    # Calculate delta_t (time difference)
+    delta_t = current_time - encoder_state[wheel]['last_time']
+
+    # Store the previous position
+    prev_pos = encoder_state[wheel]['last_encoder_pos']
+
+    # Update the last encoder position and timestamp for the wheel
+    encoder_state[wheel]['last_encoder_pos'] = current_encoder_pos
+    encoder_state[wheel]['last_time'] = current_time
+
+    return prev_pos, current_encoder_pos, delta_t
+
+
+def calculate_velocity(prev_pos, current_pos, delta_t):
+    """
+    Calculate velocity based on encoder data.
+    
+    :param prev_pos: Previous encoder position
+    :param current_pos: Current encoder position
+    :param delta_t: Time interval in seconds
+    :return: Velocity in meters per second
+    """
+    # Constants
+    radius = 0.04  # Radius in meters (40 mm)
+    pulses_per_revolution = 111.25  # Pulses per revolution (PPR)
+
+    # Calculate the change in encoder position
+    delta_n = current_pos - prev_pos
+
+    # Calculate velocity using the formula
+    velocity = (2 * math.pi * radius * delta_n) / (pulses_per_revolution * delta_t)
+    velocity = velocity * 25
+    return velocity
+
+def calculate_velocity_components(Vfr, Vfl, Vrr, Vrl):
+    """
+    Calculate the velocity components in the x and y directions.
+    
+    :param Vfr: Velocity of front-right wheel
+    :param Vfl: Velocity of front-left wheel
+    :param Vrr: Velocity of rear-right wheel
+    :param Vrl: Velocity of rear-left wheel
+    :param R: Radius of the wheels in meters
+    :return: Vx and Vy velocities in the x and y directions
+    """
+    R = 0.04
+    
+    Vx = (R / 4) * (Vfr - Vfl - Vrr + Vrl)
+    Vy = (R / 4) * (Vfr + Vfl + Vrr + Vrl)
+    
+    return Vx, Vy
+
+def update_robot_position(Vx, Vy, delta_t, theta):
+    """
+    Update the robot's position on the XY plane based on Vx, Vy, delta_t, and theta.
+    """
+    global robot_position
+
+    # Current position
+    Xold = robot_position['x']
+    Yold = robot_position['y']
+
+    # Calculate new position
+    Xnew = Xold + (Vx * math.cos(theta) - Vy * math.sin(theta)) * delta_t
+    Ynew = Yold + (Vx * math.sin(theta) + Vy * math.cos(theta)) * delta_t
+
+    # Update the global position
+    robot_position['x'] = Xnew
+    robot_position['y'] = Ynew
+
+    return robot_position
+
+def robot_position_funct():
+    global encoderPos_FL
+    global encoderPos_FR
+    global encoderPos_BL
+    global encoderPos_BR
+    global robot_position
+    global theta_radian
+    global FL_send_speed
+    global FR_send_speed
+    global BL_send_speed
+    global BR_send_speed
+    
+    while True:
+        
+        # Get the previous position, current position, and delta_t for each wheel
+        prev_pos_FL, current_pos_FL, delta_t = update_encoder_position('FL', encoderPos_FL)
+        prev_pos_FR, current_pos_FR, delta_t = update_encoder_position('FR', encoderPos_FR)
+        prev_pos_BL, current_pos_BL, delta_t = update_encoder_position('BL', encoderPos_BL)
+        prev_pos_BR, current_pos_BR, delta_t = update_encoder_position('BR', encoderPos_BR)
+
+        # Calculate velocity for each wheel based on the updated position data
+        velocity_FL = calculate_velocity(prev_pos_FL, current_pos_FL, delta_t)
+        velocity_FR = calculate_velocity(prev_pos_FR, current_pos_FR, delta_t)
+        velocity_BL = calculate_velocity(prev_pos_BL, current_pos_BL, delta_t)
+        velocity_BR = calculate_velocity(prev_pos_BR, current_pos_BR, delta_t)
+        
+        # Calculate the x and y velocity components
+        Vx, Vy = calculate_velocity_components(velocity_FR, velocity_FL, velocity_BL, velocity_BR)
+        
+        # Update robot position
+        robot_position = update_robot_position(Vx, Vy, delta_t, theta_radian)
+        position_queue.put(robot_position)
+
+        # Print the results for each wheel
+        print_queue.put(f"FL Velocity: {velocity_FL:.2f} m/s, FR Velocity: {velocity_FR:.2f} m/s, "
+              f"BL Velocity: {velocity_BL:.2f} m/s, BR Velocity: {velocity_BR:.2f} m/s")
+        print_queue.put(f"Vx (X Velocity): {Vx:.2f} m/s, Vy (Y Velocity): {Vy:.2f} m/s")
+        print_queue.put(f"Position: {robot_position}")
+        print_queue.put(f"Delta T: {delta_t}")
+        
+        
+        
+        goal_x = 0
+        goal_y = 0.3
+    
+        distance, delta_angle, theta_target = calculate_distance_and_heading_error(goal_x, goal_y, robot_position, theta_radian)
+    
+        print_queue.put(f"Distance: {distance}")
+        print_queue.put(f"Delta angle: {delta_angle}")
+        print_queue.put(f"Target angle: {theta_target}")
+
+        V_linear, V_angular= calculate_velocities(distance, delta_angle)
+        
+        print_queue.put(f"V_linear: {V_linear}")
+        print_queue.put(f"V_angular: {V_angular}")
+        
+        FL, FR, BL, BR = calculate_wheel_speeds(V_linear, V_angular, theta_target)
+        
+        print_queue.put(f"Linear wheel speeds ->  FL: {FL}, FR: {FR}, BL: {BL}, FL: {BR}")
+
+        FL_send_speed = convert_linear_to_motor_speed(FL)
+        FR_send_speed = convert_linear_to_motor_speed(FR)
+        BL_send_speed = convert_linear_to_motor_speed(BL)
+        BR_send_speed = convert_linear_to_motor_speed(BR)
+        
+        print_queue.put(f"FL motor Speed {FL_send_speed}")
+        print_queue.put(f"FR motor Speed {FR_send_speed}")
+        print_queue.put(f"BL motor Speed {BL_send_speed}")
+        print_queue.put(f"BR motor Speed {BR_send_speed}")
+
+        time.sleep(0.1)
+        
+def plot_robot_position(position_queue):
+    """
+    Plot the robot's position on the XY plane with a 1m by 1m range.
+    """
+    plt.ion()  # Enable interactive mode
+    fig, ax = plt.subplots()
+    ax.axhline(0, color='black', linewidth=0.8)  # X-axis
+    ax.axvline(0, color='black', linewidth=0.8)  # Y-axis
+    ax.grid(color='gray', linestyle='--', linewidth=0.5)
+
+    while True:
+        # Initialize x and y
+        x, y = 0, 0
+        
+        # Reading from the position_queue and assigning values to x and y
+        if not position_queue.empty():
+            temp_position = position_queue.get()
+            x = temp_position['x']
+            y = temp_position['y']
+        
+        # Update the plot
+        ax.clear()
+        ax.axhline(0, color='black', linewidth=0.8)  # X-axis
+        ax.axvline(0, color='black', linewidth=0.8)  # Y-axis
+        ax.grid(color='gray', linestyle='--', linewidth=0.5)
+        ax.scatter(x, y, color='red', label=f"({x:.2f}, {y:.2f})")
+        ax.text(x, y, f"({x:.2f}, {y:.2f})", fontsize=12, ha='right')
+        ax.set_xlim(-1, 1)  # Set limits for 1m by 1m range
+        ax.set_ylim(-1, 1)
+        ax.set_xlabel("X-axis (meters)", fontsize=14)
+        ax.set_ylabel("Y-axis (meters)", fontsize=14)
+        ax.set_title("Robot Position on XY Plane", fontsize=16)
+        ax.legend(fontsize=12)
+        plt.draw()  # Redraw the plot
+        plt.pause(0.1)  # Pause to update the figure
+
+def calculate_distance_and_heading_error(goal_x, goal_y, temp1_position, theta_current):
+    
+    x = temp1_position['x']
+    y = temp1_position['y']
+    
+    # Calculate distance
+    distance = math.sqrt((goal_x - x)**2 + (goal_y - y)**2)
+    
+    # Calculate target angle
+    theta_target = math.atan2(goal_y - y, goal_x - x)
+    
+    # Calculate heading error
+    delta_angle = (theta_target - theta_current + math.pi) % (2 * math.pi) - math.pi
+    
+    return distance, delta_angle, theta_target
+
+def calculate_velocities(distance, delta_angle):
+    
+    # add logic to create kd and kangle
+    k_d = 1
+    k_angle = 1
+    
+    V_linear = k_d * distance
+    V_angular = k_angle * delta_angle
+    
+    return V_linear, V_angular
+
+def calculate_wheel_speeds(V_linear, V_angular, theta_target):
+    L = 0.1
+    
+    # Convert linear velocity into x and y components
+    V_x = V_linear * math.cos(theta_target)
+    V_y = V_linear * math.sin(theta_target)
+    
+    # Mecanum wheel equations
+    FL = V_x + V_y + L * V_angular
+    FR = -V_x + V_y + L * V_angular
+    BL = -V_x + V_y - L * V_angular
+    BR = V_x + V_y - L * V_angular
+    
+    return FL, FR, BL, BR
+
+def convert_linear_to_motor_speed(v_linear):
+    radius = 0.04
+    dead_zone_limit = 175  # Define the dead zone range (-100 to 100)
+    max_speed = 255  # Max motor speed
+    vmax = 2.513
+
+    # Convert linear velocity to angular velocity
+    omega = v_linear / radius  # Angular velocity (rad/s)
+
+    # Calculate max angular velocity based on vmax
+    omega_max = vmax / radius
+
+    # Map angular velocity to motor speed
+    motor_speed = int((omega / omega_max) * max_speed)
+
+    # Clamp motor speed to valid range
+    motor_speed = max(-max_speed, min(max_speed, motor_speed))
+
+    # Adjust for the dead zone
+    if motor_speed > 0:
+        adjusted_speed = motor_speed * ((max_speed - dead_zone_limit) / max_speed) + dead_zone_limit
+    elif motor_speed < 0:
+        adjusted_speed = motor_speed * ((-max_speed + dead_zone_limit) / -max_speed) - dead_zone_limit
+    else:
+        adjusted_speed = 0  # No movement
+
+    # Final clamp after adjusting for the dead zone
+    adjusted_speed = max(-max_speed, min(adjusted_speed, max_speed))
+
+    return int(adjusted_speed)
+
+
+def print_safe():
+    while True:
+        try:
+            # Try to get a message from the queue
+            message = print_queue.get(timeout=0.02)  # Adjust timeout if necessary
+            sys.stdout.write(message + '\n')  # Ensures printing with a newline
+            sys.stdout.flush()  # Force flushing immediately
+        except Empty:
+            continue  # If queue is empty, keep checking
+
+# Function to calculate gyro offset and noise threshold
+def calculate_gyro_offset(samples=200):
+    global gyro_offset, gyro_threshold
+    print_queue.put("Calculating gyro offset...")
+    offsets = []
+    for _ in range(samples):
+        if ser.in_waiting > 0:
+            line = ser.readline().decode('utf-8', errors='ignore').strip()  # Decode with error handling
+            try:
+                data = json.loads(line)
+                if 'gyro' in data and 'z' in data['gyro']:
+                    gyro_z = data['gyro']['z']
+                    offsets.append(gyro_z)
+                else:
+                    print_queue.put("Gyro data not found or missing 'z' key.")
+            except (json.JSONDecodeError, KeyError) as e:
+                print_queue.put(f"Error parsing data: {e}")
+        
+        time.sleep(0.01)  # Adding a small delay to avoid flooding the serial buffer
+    
+    if offsets:
+        # Calculate the standard deviation of the collected offsets
+        offsets = np.array(offsets)
+        gyro_offset = np.median(offsets)  # Use median for offset calculation
+        gyro_threshold = np.std(offsets) * 2  # Set threshold to 2x the standard deviation
+        print_queue.put(f"Gyro offset calculated: {gyro_offset}")
+        print_queue.put(f"Gyro noise threshold calculated: {gyro_threshold}")
+    else:
+        print_queue.put("Failed to calculate gyro offset. No valid data received.")
+
+def update_theta():
+    global theta_radian, theta_degree, last_time, gyro_offset, gyro_threshold
+    last_gyro_z = 0.0  # Store last gyro value for filtering
+    while True:
+        try:
+            # Check if queue has data
+            if not gyro_queue.empty():
+                gyro_z = gyro_queue.get_nowait()  # Non-blocking
+
+                current_time = time.time()
+                if last_time is None:
+                    last_time = current_time
+                    continue
+                delta_time = current_time - last_time
+                last_time = current_time
+
+                # Ignore gyro values smaller than the threshold
+                if abs(gyro_z) < gyro_threshold:
+                    gyro_z = 0  # Zero out small gyro readings to ignore noise
+
+                # Low-pass filter for gyro_z (if desired)
+                smoothed_gyro_z = alpha * gyro_z + (1 - alpha) * last_gyro_z
+                last_gyro_z = smoothed_gyro_z  # Store the last value for the next iteration
+
+                # Correct for drift using smoothed gyro_z
+                angular_velocity = smoothed_gyro_z - gyro_offset
+
+                # Apply small decay to reduce drift over time
+                if abs(angular_velocity) < 0.01:  # Reduced threshold to treat as "zero velocity"
+                    angular_velocity = 0
+
+                # Integrate angular velocity to get angle
+                theta_degree += angular_velocity * delta_time
+                theta_degree %= 360  # Keep theta within [0, 360) degrees
+                
+                theta_radian = math.radians(theta_degree)
+
+                # Print the updated angle
+                print_queue.put(f"Current Angle (theta_degree): {theta_degree:.2f} degrees")
+                
+            time.sleep(0.01)  # Shorter sleep to reduce lag
+        except Empty:
+            continue  # If queue is empty, continue the loop
+
+def read_and_parse_serial():
+    global encoderPos_FL
+    global encoderPos_FR
+    global encoderPos_BL
+    global encoderPos_BR
+    while True:
+        try:
+            if ser.in_waiting > 0:
+                line = ser.readline().decode('utf-8', errors='ignore').strip()  # Decode with error handling
+                
+                if line:
+                    #print_queue.put(f"Raw data: {line}")  # Print the raw incoming data
+                    
+                    try:
+                        # Parse JSON data
+                        data = json.loads(line)
+                        
+                        # Extract various sensor data (adjust to match your actual structure)
+                        distance_f = data['distance']['F']
+                        distance_b = data['distance']['B']
+                        distance_l = data['distance']['L']
+                        distance_r = data['distance']['R']
+                
+                        gyro_x = data['gyro']['x']
+                        gyro_y = data['gyro']['y']
+                        gyro_z = data['gyro']['z']
+                
+                        accel_x = data['accel']['x']
+                        accel_y = data['accel']['y']
+                        accel_z = data['accel']['z']
+                
+                        #encoderPos_FL = data['enco']['1']['position']
+                        #encoderPos_FR = data['enco']['2']['position']
+                        #encoderPos_BL = data['enco']['3']['position']
+                        #encoderPos_BR = data['enco']['4']['position']
+                        
+                        encoderPos_FL = data['enco']['1']['position']
+                        encoderPos_BL = data['enco']['2']['position']
+                        encoderPos_FR = data['enco']['3']['position']
+                        encoderPos_BR = data['enco']['4']['position']
+
+                        rotation_1 = data['enco']['1']['rotation']
+                        rotation_2 = data['enco']['2']['rotation']
+                        rotation_3 = data['enco']['3']['rotation']
+                        rotation_4 = data['enco']['4']['rotation']
+
+                        temperature = data['environment']['temperature']
+                        humidity = data['environment']['humidity']
+                
+                        # Print parsed data
+                        print_queue.put(f"Distances - L: {distance_l}, R: {distance_r}, B: {distance_b}, F: {distance_f}")
+                        print_queue.put(f"Gyro - X: {gyro_x}, Y: {gyro_y}, Z: {gyro_z}")
+                        print_queue.put(f"Accel - X: {accel_x}, Y: {accel_y}, Z: {accel_z}")
+                        print_queue.put(f"Encoder 1 - Position: {encoderPos_FL}, Rotation: {rotation_1}")
+                        print_queue.put(f"Encoder 2 - Position: {encoderPos_FR}, Rotation: {rotation_2}")
+                        print_queue.put(f"Encoder 3 - Position: {encoderPos_BL}, Rotation: {rotation_3}")
+                        print_queue.put(f"Encoder 4 - Position: {encoderPos_BR}, Rotation: {rotation_4}")
+                        print_queue.put(f"Environment - Temperature: {temperature}°C, Humidity: {humidity}%")
+                        gyro_queue.put(gyro_z)  # Add gyro_z to the queue
+                    except json.JSONDecodeError:
+                        print_queue.put("Error: Received invalid JSON data.")
+                    except KeyError as e:
+                        print_queue.put(f"Error: Missing key in JSON data - {e}")
+                else:
+                    print_queue.put("No data received.")
+            time.sleep(0.01)  # Reduced delay to prevent lag
+        except Exception as e:
+            print_queue.put(f"Error while reading serial data: {e}")
+
+# Function to send JSON data
+def send_data():
+    global FL_send_speed
+    global FR_send_speed
+    global BL_send_speed
+    global BR_send_speed
+    while True:
+        # Example data to send
+        fl, fr, bl, br = FL_send_speed, FR_send_speed, BL_send_speed, BR_send_speed  # Replace with actual logic
+        # Create a dictionary with the variables
+        data = {
+            "FL": fl,
+            "FR": fr,
+            "BL": bl,
+            "BR": br
+        }
+        # Convert dictionary to JSON string
+        json_data = json.dumps(data)
+        # Send JSON string over UART
+        ser.write((json_data + "\n").encode('utf-8'))
+        
+        print_queue.put(f"Data sent: {data}")
+        time.sleep(0.05)  # Send data periodically
+
+# Main function
+def main():
+    print_queue.put("Starting UART communication...")
+
+    # Calculate gyro offset before starting
+    calculate_gyro_offset()
+
+    # Start threads for reading, writing, and updating theta
+    read_thread = threading.Thread(target=read_and_parse_serial, daemon=True)
+    write_thread = threading.Thread(target=send_data, daemon=True)
+    theta_thread = threading.Thread(target=update_theta, daemon=True)
+    print_thread = threading.Thread(target=print_safe, daemon=True)
+    position_thread = threading.Thread(target=robot_position_funct, daemon=True)
+
+    read_thread.start()
+    write_thread.start()
+    theta_thread.start()
+    print_thread.start()
+    position_thread.start()
+    
+    #plot_robot_position(position_queue)
+    
+    try:
+        while True:
+            time.sleep(0.01)  # Keep the main thread alive
+    except KeyboardInterrupt:
+        print_queue.put("Stopping communication...")
+    finally:
+        plt.ioff()
+        plt.show()
+        ser.close()
+
+if __name__ == "__main__":
+    main()
+
