@@ -367,13 +367,7 @@ void readEncoder1() {
     posi1--;
   }
 
-  if (posi1 >= PULSES_PER_REV) {
-    posi1 -= PULSES_PER_REV;
-    rotations1++;
-  } else if (posi1 <= -PULSES_PER_REV) {
-    posi1 += PULSES_PER_REV;
-    rotations1--;
-  }
+  rotations1 = posi1 / PULSES_PER_REV;
 }
 
 void readEncoder2() {
@@ -385,13 +379,7 @@ void readEncoder2() {
     posi2--;
   }
 
-  if (posi2 >= PULSES_PER_REV) {
-    posi2 -= PULSES_PER_REV;
-    rotations2++;
-  } else if (posi2 <= -PULSES_PER_REV) {
-    posi2 += PULSES_PER_REV;
-    rotations2--;
-  }
+  rotations2 = posi2 / PULSES_PER_REV;
 }
 
 void readEncoder3() {
@@ -403,13 +391,7 @@ void readEncoder3() {
     posi3--;
   }
 
-  if (posi3 >= PULSES_PER_REV) {
-    posi3 -= PULSES_PER_REV;
-    rotations3++;
-  } else if (posi3 <= -PULSES_PER_REV) {
-    posi3 += PULSES_PER_REV;
-    rotations3--;
-  }
+  rotations3 = posi3 / PULSES_PER_REV;
 }
 
 void readEncoder4() {
@@ -421,13 +403,7 @@ void readEncoder4() {
     posi4--;
   }
 
-  if (posi4 >= PULSES_PER_REV) {
-    posi4 -= PULSES_PER_REV;
-    rotations4++;
-  } else if (posi4 <= -PULSES_PER_REV) {
-    posi4 += PULSES_PER_REV;
-    rotations4--;
-  }
+  rotations4 = posi4 / PULSES_PER_REV;
 }
 
 // Function to drive Mecanum wheels
