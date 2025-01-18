@@ -118,6 +118,7 @@ void loop() {
       mecanumDrive(0,0,0,0);
     } else {
       mecanumDrive(FL, FR, BL, BR);
+      //mecanumDrive(255, 255, 0, 0);
     }
 
     // Counter
