@@ -486,10 +486,10 @@ def send_data():
         fl, fr, bl, br = FL_send_speed, FR_send_speed, BL_send_speed, BR_send_speed
         # Create a dictionary with the variables
         data = {
-            "FL": 255,
+            "FL": -255,
             "FR": 255,
-            "BL": 255,
-            "BR": 255,
+            "BL": 0,
+            "BR": 0,
             "wheel_off": wheel_off,
             "rst_flag": rst_flag
         }
@@ -546,4 +546,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-
