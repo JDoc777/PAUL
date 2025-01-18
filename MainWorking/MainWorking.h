@@ -49,6 +49,9 @@ int FL = 0;
 int FR = 0;
 int BL = 0;
 int BR = 0;
+
+bool rst_flag = false;
+bool wheel_off = false;
 //-----------------------------------------------------------------------
 
 

@@ -100,22 +100,30 @@ void setup() {
 }
 
 void loop() {
-  // Read sensor data                 // Encoders are Interupt
-  recordDistances();
-  readAccelGyro();
+  if (rst_flag) {
+    NVIC_SystemReset(); // Reset the microcontroller
+  }
+    // Read sensor data                 // Encoders are Interupt
+    recordDistances();
+    readAccelGyro();
 
-  // Send Serial data
-  sendSensorData_to_Pi();
-  // sendSensorData_to_Monitor();
+    // Send Serial data
+    sendSensorData_to_Pi();
+    // sendSensorData_to_Monitor();
 
-  // Read UART input
-  readSerialData();
+    // Read UART input
+    readSerialData();
 
-  mecanumDrive(FL, FR, BL, BR);
+    if (wheel_off){
+      mecanumDrive(0,0,0,0);
+    } else {
+      mecanumDrive(FL, FR, BL, BR);
+    }
+
+    // Counter
+    Serial.println(counter); // Print Counter
+    counter++;               // Increment counter
   
-  // Counter
-  Serial.println(counter); // Print Counter
-  counter++;               // Increment counter
 
   //--------------------------------------------------------------------------------
 
@@ -275,12 +283,19 @@ void readSerialData() {
           BL = doc["BL"] | 0;
           BR = doc["BR"] | 0;
 
+          wheel_off = doc["wheel_off"];
+
+          rst_flag = doc["rst_flag"];
+
           // Print the parsed values for debugging
           Serial.print("Parsed values: ");
           Serial.print("FL: "); Serial.print(FL);
           Serial.print(", FR: "); Serial.print(FR);
           Serial.print(", BL: "); Serial.print(BL);
           Serial.print(", BR: "); Serial.println(BR);
+
+          Serial.print("Wheels off flag:"); Serial.println(wheel_off);
+          Serial.print("Reset flag:"); Serial.println(rst_flag);
         }
       } else {
         // If the message is malformed, discard it
