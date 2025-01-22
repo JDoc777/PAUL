@@ -261,6 +261,34 @@ def animate(i, position_queue, target_position_queue, scatter_current, text_curr
         pass
     ax.legend(fontsize=12) # important to redraw legend
 
+def plot_robot_position(position_queue, target_position_queue):
+    """Plot the robot's position using animation."""
+    fig, ax = plt.subplots()
+    ax.axhline(0, color='black', linewidth=0.8)
+    ax.axvline(0, color='black', linewidth=0.8)
+    ax.grid(color='gray', linestyle='--', linewidth=0.5)
+
+    # Initialize plot elements
+    scatter_current, = ax.plot([], [], marker='o', color='red', linestyle='None')
+    text_current = ax.text(0, 0, "", fontsize=6, ha='right')
+    scatter_target, = ax.plot([], [], marker='o', color='green', linestyle='None')
+    text_target = ax.text(0, 0, "", fontsize=6, ha='right')
+    arrow = ax.arrow(0, 0, 0, 0, head_width=0.05, head_length=0.05, fc='blue', ec='blue')
+
+    # Create dummy handles for the legend *before* creating the legend
+    current_legend_handle, = ax.plot([], [], marker='o', color='red', linestyle='None', label="Current Position")
+    target_legend_handle, = ax.plot([], [], marker='o', color='green', linestyle='None', label="Target Position")
+
+    ax.set_xlim(-1, 1)
+    ax.set_ylim(-1, 1)
+    ax.set_xlabel("X-axis (meters)", fontsize=14)
+    ax.set_ylabel("Y-axis (meters)", fontsize=14)
+    ax.set_title("Robot Position on XY Plane", fontsize=16)
+    ax.legend(fontsize=12)
+
+    ani = animation.FuncAnimation(fig, animate, fargs=(position_queue, target_position_queue, scatter_current, text_current, scatter_target, text_target, arrow, current_legend_handle, target_legend_handle), interval=200)
+    plt.show()
+
 def calculate_distance_and_heading_error(goal_x, goal_y, temp1_position):
     
     x = temp1_position['x']
