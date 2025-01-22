@@ -42,6 +42,7 @@ robot_position = {'x': 0.0, 'y': 0.0, 'angle': 0.0}  # Initial position (x, y) a
 target_position = {'x': 0.3, 'y': 0.0}
 target_position_queue.put(target_position)
 
+# Encoder state setup
 encoder_state = {
     'FL': {'last_encoder_pos': 0, 'last_time': time.time()},
     'FR': {'last_encoder_pos': 0, 'last_time': time.time()},
@@ -61,13 +62,6 @@ BL_send_speed = 0
 BR_send_speed = 0
 
 def update_encoder_position(wheel, current_encoder_pos):
-    """
-    Update the encoder position and calculate the time interval for a given wheel.
-    
-    :param wheel: Wheel identifier (e.g., 'FL', 'FR', 'BL', 'BR')
-    :param current_encoder_pos: Current encoder position for the wheel
-    :return: prev_pos, current_pos, delta_t
-    """
     global encoder_state
 
     # Get the current timestamp
@@ -87,14 +81,7 @@ def update_encoder_position(wheel, current_encoder_pos):
 
 
 def calculate_velocity(prev_pos, current_pos, delta_t):
-    """
-    Calculate velocity based on encoder data.
     
-    :param prev_pos: Previous encoder position
-    :param current_pos: Current encoder position
-    :param delta_t: Time interval in seconds
-    :return: Velocity in meters per second
-    """
     # Constants
     radius = 0.04  # Radius in meters (40 mm)
     pulses_per_revolution = 111.25  # Pulses per revolution (PPR)
@@ -123,9 +110,6 @@ def calculate_velocity_components(Vfr, Vfl, Vrr, Vrl):
     return Vx, Vy, Va
 
 def update_robot_position(Vx, Vy, delta_t, Va):
-    """
-    Update the robot's position on the XY plane based on Vx, Vy, delta_t, and theta.
-    """
     global robot_position
 
     # Current position
@@ -193,7 +177,7 @@ def robot_position_funct():
         print_queue.put(f"Rho: {rho}")
         print_queue.put(f"Delta T: {robot_delta_t}")
         
-        
+        #----------------------------------------------------------------------------------------
         
         goal_x = target_position['x']
         goal_y = target_position['y']
@@ -263,17 +247,17 @@ def plot_robot_position(position_queue, target_position_queue):
     ax.grid(color='gray', linestyle='--', linewidth=0.5)
 
     # Initialize plot elements outside the animation loop
-    scatter_current = ax.scatter([], [], color='red', label="Current Position")
-    text_current = ax.text(0, 0, "", fontsize=6, ha='right')
-    scatter_target = ax.scatter([], [], color='green', label="Target Position")
-    text_target = ax.text(0, 0, "", fontsize=6, ha='right')
-    arrow = ax.arrow(0, 0, 0, 0, head_width=0.05, head_length=0.05, fc='blue', ec='blue', label='Orientation')
+    scatter_current = ax.scatter([], [], color='red', label="Current")
+    text_current = ax.text(0, 0, "", fontsize=10, ha='right')
+    scatter_target = ax.scatter([], [], color='green', label="Target")
+    text_target = ax.text(0, 0, "", fontsize=10, ha='right')
+    arrow = ax.arrow(0, 0, 0, 0, head_width=0.05, head_length=0.05, fc='blue', ec='blue', label='Angle')
 
     ax.set_xlim(-1, 1)
     ax.set_ylim(-1, 1)
-    ax.set_xlabel("X-axis (meters)", fontsize=14)
-    ax.set_ylabel("Y-axis (meters)", fontsize=14)
-    ax.set_title("Robot Position on XY Plane", fontsize=16)
+    ax.set_xlabel("X-axis (m)", fontsize=14)
+    ax.set_ylabel("Y-axis (m)", fontsize=14)
+    ax.set_title("PAUL's Position", fontsize=16)
     ax.legend(fontsize=12)
 
     ani = animation.FuncAnimation(fig, animate, fargs=(position_queue, target_position_queue, scatter_current, text_current, scatter_target, text_target, arrow), interval=200) # interval in ms
@@ -284,7 +268,6 @@ def calculate_distance_and_heading_error(goal_x, goal_y, temp1_position):
     x = temp1_position['x']
     y = temp1_position['y']
     theta_current = temp1_position['angle']
-    
     
     # Calculate distance
     distance = math.sqrt((goal_x - x)**2 + (goal_y - y)**2)
@@ -469,11 +452,6 @@ def read_and_parse_serial():
                         accel_x = data['accel']['x']
                         accel_y = data['accel']['y']
                         accel_z = data['accel']['z']
-                
-                        #encoderPos_FL = data['enco']['1']['position']
-                        #encoderPos_FR = data['enco']['2']['position']
-                        #encoderPos_BL = data['enco']['3']['position']
-                        #encoderPos_BR = data['enco']['4']['position']
                         
                         encoderPos_FL = data['enco']['1']['position']
                         encoderPos_BL = data['enco']['2']['position']
@@ -553,7 +531,6 @@ def initialitazion():
     # Calculate gyro offset
     calculate_gyro_offset()
     
-# Main function
 def main():
     print_queue.put("Starting UART communication...")
 
