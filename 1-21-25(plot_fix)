@@ -225,60 +225,58 @@ def robot_position_funct():
 
         time.sleep(0.1)
         
+def animate(i, position_queue, target_position_queue, scatter_current, text_current, scatter_target, text_target, arrow):
+    """Animation function for updating the plot."""
+    try:
+        if not position_queue.empty():
+            temp_position = position_queue.get_nowait()
+            x = temp_position['x']
+            y = temp_position['y']
+            angle = temp_position['angle']
+
+            scatter_current.set_offsets([x, y])
+            text_current.set_position((x, y))
+            text_current.set_text(f"({x:.2f}, {y:.2f})")
+
+            arrow_length = 0.1
+            dx = arrow_length * math.cos(angle)
+            dy = arrow_length * math.sin(angle)
+            arrow.set_data(x=x, y=y, dx=dx, dy=dy)
+
+        if not target_position_queue.empty():
+            target_position = target_position_queue.get_nowait()
+            target_x = target_position['x']
+            target_y = target_position['y']
+
+            scatter_target.set_offsets([target_x, target_y])
+            text_target.set_position((target_x, target_y))
+            text_target.set_text(f"({target_x:.2f}, {target_y:.2f})")
+    except queue.Empty:
+        pass  # Handle potential race conditions where queue becomes empty between checks
+
 def plot_robot_position(position_queue, target_position_queue):
-    """
-    Plot the robot's position on the XY plane with a 1m by 1m range.
-    """
-    plt.ion()  # Enable interactive mode
+    """Plot the robot's position using animation."""
     fig, ax = plt.subplots()
-    ax.axhline(0, color='black', linewidth=0.8)  # X-axis
-    ax.axvline(0, color='black', linewidth=0.8)  # Y-axis
+    ax.axhline(0, color='black', linewidth=0.8)
+    ax.axvline(0, color='black', linewidth=0.8)
     ax.grid(color='gray', linestyle='--', linewidth=0.5)
 
-    # Initial plot elements
-    robot_pos = ax.scatter([], [], color='red')
-    target_pos = ax.scatter([], [], color='green')
-    orientation_arrow = ax.arrow(0, 0, 0, 0, head_width=0.05, head_length=0.05, fc='blue', ec='blue')
+    # Initialize plot elements outside the animation loop
+    scatter_current = ax.scatter([], [], color='red', label="Current Position")
+    text_current = ax.text(0, 0, "", fontsize=6, ha='right')
+    scatter_target = ax.scatter([], [], color='green', label="Target Position")
+    text_target = ax.text(0, 0, "", fontsize=6, ha='right')
+    arrow = ax.arrow(0, 0, 0, 0, head_width=0.05, head_length=0.05, fc='blue', ec='blue', label='Orientation')
 
-    ax.set_xlim(-1, 1)  # Set limits for 1m by 1m range
+    ax.set_xlim(-1, 1)
     ax.set_ylim(-1, 1)
     ax.set_xlabel("X-axis (meters)", fontsize=14)
     ax.set_ylabel("Y-axis (meters)", fontsize=14)
     ax.set_title("Robot Position on XY Plane", fontsize=16)
     ax.legend(fontsize=12)
 
-    while True:
-        
-        # Reading from the position_queue and assigning values to x and y
-        if not position_queue.empty():
-            temp_position = position_queue.get_nowait()
-            x = temp_position['x']
-            y = temp_position['y']
-            angle = temp_position['angle']
-        
-        # Read and assign target x and y
-        if not target_position_queue.empty():
-            target_position = target_position_queue.get_nowait()
-            target_x = target_position['x']
-            target_y = target_position['y']
-        
-        # Update the robot position and target position
-        robot_pos.set_offsets([x, y])
-        target_pos.set_offsets([target_x, target_y])
-
-        # Update the orientation arrow
-        arrow_length = 0.1  # Length of the arrow
-        dx = arrow_length * math.cos(angle)  # X component of the arrow
-        dy = arrow_length * math.sin(angle)  # Y component of the arrow
-        orientation_arrow.set_data([x, x + dx], [y, y + dy])
-
-        # Update text labels for positions (to avoid text flickering, clear and redraw only if necessary)
-        ax.texts.clear()  # Clear old text labels
-        ax.text(x, y, f"({x:.2f}, {y:.2f})", fontsize=6, ha='right')
-        ax.text(target_x, target_y, f"({target_x:.2f}, {target_y:.2f})", fontsize=6, ha='right')
-
-        plt.draw()  # Redraw the plot
-        plt.pause(0.02)  # Pause to update the figure (can be adjusted)
+    ani = animation.FuncAnimation(fig, animate, fargs=(position_queue, target_position_queue, scatter_current, text_current, scatter_target, text_target, arrow), interval=200) # interval in ms
+    plt.show()
 
 def calculate_distance_and_heading_error(goal_x, goal_y, temp1_position):
     
