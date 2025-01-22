@@ -253,7 +253,7 @@ def animate(i, position_queue, target_position_queue, scatter_current, text_curr
             text_target.set_position((target_x, target_y))
             text_target.set_text(f"({target_x:.2f}, {target_y:.2f})")
     except queue.Empty:
-        pass  # Handle potential race conditions where queue becomes empty between checks
+        pass
 
 def plot_robot_position(position_queue, target_position_queue):
     """Plot the robot's position using animation."""
@@ -262,10 +262,10 @@ def plot_robot_position(position_queue, target_position_queue):
     ax.axvline(0, color='black', linewidth=0.8)
     ax.grid(color='gray', linestyle='--', linewidth=0.5)
 
-    # Initialize plot elements outside the animation loop
-    scatter_current = ax.scatter([], [], color='red', label="Current Position")
+    # Initialize plot elements
+    scatter_current, = ax.plot([], [], marker='o', color='red', label="Current Position", linestyle='None') # use plot for legend to work
     text_current = ax.text(0, 0, "", fontsize=6, ha='right')
-    scatter_target = ax.scatter([], [], color='green', label="Target Position")
+    scatter_target, = ax.plot([], [], marker='o', color='green', label="Target Position", linestyle='None') # use plot for legend to work
     text_target = ax.text(0, 0, "", fontsize=6, ha='right')
     arrow = ax.arrow(0, 0, 0, 0, head_width=0.05, head_length=0.05, fc='blue', ec='blue', label='Orientation')
 
@@ -276,7 +276,7 @@ def plot_robot_position(position_queue, target_position_queue):
     ax.set_title("Robot Position on XY Plane", fontsize=16)
     ax.legend(fontsize=12)
 
-    ani = animation.FuncAnimation(fig, animate, fargs=(position_queue, target_position_queue, scatter_current, text_current, scatter_target, text_target, arrow), interval=200) # interval in ms
+    ani = animation.FuncAnimation(fig, animate, fargs=(position_queue, target_position_queue, scatter_current, text_current, scatter_target, text_target, arrow), interval=200)
     plt.show()
 
 def calculate_distance_and_heading_error(goal_x, goal_y, temp1_position):
