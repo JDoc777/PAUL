@@ -32,9 +32,12 @@ alpha = 0.95         # Low-pass filter weight (0.0 < alpha < 1.0)
 # Lock and queue for thread synchronization
 gyro_queue = Queue(maxsize=200)  # Increased queue size to hold more gyro data
 print_queue = Queue()
-position_queue = Queue()
+position_queue = Queue(maxsize=5)
 target_position_queue = Queue()
-F_position_queue = Queue()
+F_position_queue = Queue(maxsize=5)
+R_position_queue = Queue(maxsize=5)
+B_position_queue = Queue(maxsize=5)
+L_position_queue = Queue(maxsize=5)
 
 # Global variables for robot's position
 robot_position = {'x': 0.0, 'y': 0.0, 'angle': 0.0}  # Initial position (x, y) and angle (in radians)
@@ -44,7 +47,14 @@ target_position = {'x': 0.3, 'y': 0.0}
 target_position_queue.put(target_position)
 
 distance_f = 0
+distance_r = 0
+distance_b = 0
+distance_l = 0
 F_obstacle_xy = {'x': 0.0, 'y': 0.0}
+R_obstacle_xy = {'x': 0.0, 'y': 0.0}
+B_obstacle_xy = {'x': 0.0, 'y': 0.0}
+L_obstacle_xy = {'x': 0.0, 'y': 0.0}
+
 
 # Encoder state setup
 encoder_state = {
@@ -80,7 +90,7 @@ def calculate_obstacle_xy(angle, distance, sensor_position):
     """
     print_queue.put(f"debug distance {distance}")
     # Convert the angle to radians
-    angle_rad = math.radians(angle)
+    angle_rad = angle
 
     # Calculate the relative (x, y) position of the obstacle
     relative_x = distance * math.cos(angle_rad)
@@ -177,6 +187,9 @@ def robot_position_funct():
     global BR_send_speed
     global target_position
     global distance_f
+    global distance_r
+    global distance_b
+    global distance_l
     global F_obstacle_xy
     
     while True:
@@ -244,38 +257,161 @@ def robot_position_funct():
         print_queue.put(f"BL motor Speed {BL_send_speed}")
         print_queue.put(f"BR motor Speed {BR_send_speed}")
         
-        F_sonar_angle = robot_position['angle']
-        F_sonar_x = robot_position['x']
-        F_sonar_y = robot_position['y']
-        F_sonar_x = F_sonar_x + 0.125 * math.cos(F_sonar_angle)
-        F_sonar_y = F_sonar_y + 0.125 * math.sin(F_sonar_angle)
-        print_queue.put(f"Sonar position X:{F_sonar_x}, Y:{F_sonar_y}")
+        #------------------------------------------------
+        
+        temp_x = robot_position['x']
+        temp_y = robot_position['y']
+        temp_angle = robot_position['angle']
+        R_sonar_angle = temp_angle - math.radians(90)
+        L_sonar_angle = temp_angle + math.radians(90)
+        B_sonar_angle = temp_angle - math.radians(180)
+        F_sonar_x = temp_x + 0.125 * math.cos(temp_angle)
+        F_sonar_y = temp_y + 0.125 * math.sin(temp_angle)
+        R_sonar_x = temp_x + 0.1 * math.cos(R_sonar_angle)
+        R_sonar_y = temp_y + 0.1 * math.sin(R_sonar_angle)
+        L_sonar_x = temp_x + 0.1 * math.cos(L_sonar_angle)
+        L_sonar_y = temp_y + 0.1 * math.sin(L_sonar_angle)
+        B_sonar_x = temp_x + 0.125 * math.cos(B_sonar_angle)
+        B_sonar_y = temp_y + 0.125 * math.sin(B_sonar_angle)
         F_sensor_pos = (F_sonar_x, F_sonar_y)
+        R_sensor_pos = (R_sonar_x, R_sonar_y)
+        L_sensor_pos = (L_sonar_x, L_sonar_y)
+        B_sensor_pos = (B_sonar_x, B_sonar_y)
         F_dist = distance_f / 100
-        print_queue.put(f"debug first distance {F_dist}")
-        F_obstacle_x, F_obstacle_y = calculate_obstacle_xy(F_sonar_angle, F_dist, F_sensor_pos)
-        F_obstacle_xy['x'] = F_obstacle_x
-        F_obstacle_xy['y'] = F_obstacle_y
-        print_queue.put(f"Obstacle Position {F_obstacle_xy}")
-
+        R_dist = distance_r / 100
+        L_dist = distance_l / 100
+        B_dist = distance_b / 100
+        F_obstacle_x, F_obstacle_y = calculate_obstacle_xy(temp_angle, F_dist, F_sensor_pos)
+        R_obstacle_x, R_obstacle_y = calculate_obstacle_xy(R_sonar_angle, R_dist, R_sensor_pos)
+        L_obstacle_x, L_obstacle_y = calculate_obstacle_xy(L_sonar_angle, L_dist, L_sensor_pos)
+        B_obstacle_x, B_obstacle_y = calculate_obstacle_xy(B_sonar_angle, B_dist, B_sensor_pos)
+        F_obstacle_xy = {'x': F_obstacle_x, 'y': F_obstacle_y}
+        R_obstacle_xy = {'x': R_obstacle_x, 'y': R_obstacle_y}
+        L_obstacle_xy = {'x': L_obstacle_x, 'y': L_obstacle_y}
+        B_obstacle_xy = {'x': B_obstacle_x, 'y': B_obstacle_y}
         F_position_queue.put(F_obstacle_xy)
+        R_position_queue.put(R_obstacle_xy)
+        L_position_queue.put(L_obstacle_xy)
+        B_position_queue.put(B_obstacle_xy)
+        
+        #------------------------------------------------
+        
+#         #Front Sonar
+#         F_sonar_angle = robot_position['angle']
+#         F_sonar_x = robot_position['x']
+#         F_sonar_y = robot_position['y']
+#         F_sonar_x = F_sonar_x + 0.125 * math.cos(F_sonar_angle)
+#         F_sonar_y = F_sonar_y + 0.125 * math.sin(F_sonar_angle)
+#         print_queue.put(f"Front Sonar position X:{F_sonar_x}, Y:{F_sonar_y}, Angle: {F_sonar_angle}")
+#         F_sensor_pos = (F_sonar_x, F_sonar_y)
+#         F_dist = distance_f / 100
+#         print_queue.put(f"debug first distance {F_dist}")
+#         F_obstacle_x, F_obstacle_y = calculate_obstacle_xy(F_sonar_angle, F_dist, F_sensor_pos)
+#         F_obstacle_xy['x'] = F_obstacle_x
+#         F_obstacle_xy['y'] = F_obstacle_y
+#         print_queue.put(f"Obstacle Position {F_obstacle_xy}")
+#         F_position_queue.put(F_obstacle_xy)
+#         
+#         # Right Sonar
+#         R_sonar_angle = robot_position['angle']
+#         R_sonar_angle = R_sonar_angle - math.radians(90)
+#         R_sonar_x = robot_position['x']
+#         R_sonar_y = robot_position['y']
+#         R_sonar_x = R_sonar_x + 0.1 * math.cos(R_sonar_angle)
+#         R_sonar_y = R_sonar_y + 0.1 * math.sin(R_sonar_angle)
+#         print_queue.put(f"Right Sonar position X:{R_sonar_x}, Y:{R_sonar_y}, Angle: {R_sonar_angle}")
+#         R_sensor_pos = (R_sonar_x, R_sonar_y)
+#         R_dist = distance_r / 100
+#         print_queue.put(f"debug Right distance {R_dist}")
+#         R_obstacle_x, R_obstacle_y = calculate_obstacle_xy(R_sonar_angle, R_dist, R_sensor_pos)
+#         R_obstacle_xy['x'] = R_obstacle_x
+#         R_obstacle_xy['y'] = R_obstacle_y
+#         print_queue.put(f"Right Obstacle Position {R_obstacle_xy}")
+#         R_position_queue.put(R_obstacle_xy)
+#         
+#         # Back Sonar
+#         B_sonar_angle = robot_position['angle']
+#         B_sonar_angle = B_sonar_angle - math.radians(180)
+#         B_sonar_x = robot_position['x']
+#         B_sonar_y = robot_position['y']
+#         B_sonar_x = B_sonar_x + 0.125 * math.cos(B_sonar_angle)
+#         B_sonar_y = B_sonar_y + 0.125 * math.sin(B_sonar_angle)
+#         print_queue.put(f"Back Sonar position X:{B_sonar_x}, Y:{B_sonar_y}, Angle: {B_sonar_angle}")
+#         B_sensor_pos = (B_sonar_x, B_sonar_y)
+#         B_dist = distance_b / 100
+#         print_queue.put(f"debug Back distance {B_dist}")
+#         B_obstacle_x, B_obstacle_y = calculate_obstacle_xy(B_sonar_angle, B_dist, B_sensor_pos)
+#         B_obstacle_xy['x'] = B_obstacle_x
+#         B_obstacle_xy['y'] = B_obstacle_y
+#         print_queue.put(f"Back Obstacle Position {B_obstacle_xy}")
+#         B_position_queue.put(B_obstacle_xy)
+#         
+#         # Left Sonar
+#         L_sonar_angle = robot_position['angle']
+#         L_sonar_angle = L_sonar_angle + math.radians(90)
+#         L_sonar_x = robot_position['x']
+#         L_sonar_y = robot_position['y']
+#         L_sonar_x = L_sonar_x + 0.1 * math.cos(L_sonar_angle)
+#         L_sonar_y = L_sonar_y + 0.1 * math.sin(L_sonar_angle)
+#         print_queue.put(f"Left Sonar position X:{L_sonar_x}, Y:{L_sonar_y}, Angle: {L_sonar_angle}")
+#         L_sensor_pos = (L_sonar_x, L_sonar_y)
+#         L_dist = distance_l / 100
+#         print_queue.put(f"debug Left distance {L_dist}")
+#         L_obstacle_x, L_obstacle_y = calculate_obstacle_xy(L_sonar_angle, L_dist, L_sensor_pos)
+#         L_obstacle_xy['x'] = L_obstacle_x
+#         L_obstacle_xy['y'] = L_obstacle_y
+#         print_queue.put(f"Left Obstacle Position {L_obstacle_xy}")
+#         L_position_queue.put(L_obstacle_xy)
+# 
 
         time.sleep(0.1)
+
+def get_latest(queue):
+    """Drains the queue and returns the most recent value."""
+    latest = None
+    while not queue.empty():
+        latest = queue.get_nowait()
+    return latest
         
-def animate(i, position_queue, target_position_queue, F_position_queue, scatter_Front, text_Front, scatter_current, text_current, scatter_target, text_target, arrow):
+def animate(i, position_queue, target_position_queue, F_position_queue, R_position_queue, B_position_queue, L_position_queue,
+            scatter_Front, text_Front, scatter_Right, text_Right, scatter_Back, text_Back, scatter_Left, text_Left,
+            scatter_current, text_current, scatter_target, text_target, arrow):
     """Animation function for updating the plot."""
-    #global F_obstacle_xy
     try:
         if not F_position_queue.empty():
-            temp_position2 = F_position_queue.get_nowait()
+            temp_position2 = get_latest(F_position_queue)
             F_x = temp_position2['x']
             F_y = temp_position2['y']
             scatter_Front.set_offsets([F_x, F_y])
             text_Front.set_position((F_x, F_y))
             text_Front.set_text(f"({F_x:.2f}, {F_y:.2f})")
         
+        if not R_position_queue.empty():
+            temp_position3 = get_latest(R_position_queue)
+            R_x = temp_position3['x']
+            R_y = temp_position3['y']
+            scatter_Right.set_offsets([R_x, R_y])
+            text_Right.set_position((R_x, R_y))
+            text_Right.set_text(f"({R_x:.2f}, {R_y:.2f})")
+        
+        if not B_position_queue.empty():
+            temp_position4 = get_latest(B_position_queue)
+            B_x = temp_position4['x']
+            B_y = temp_position4['y']
+            scatter_Back.set_offsets([B_x, B_y])
+            text_Back.set_position((B_x, B_y))
+            text_Back.set_text(f"({B_x:.2f}, {B_y:.2f})")
+        
+        if not L_position_queue.empty():
+            temp_position5 = get_latest(L_position_queue)
+            L_x = temp_position5['x']
+            L_y = temp_position5['y']
+            scatter_Left.set_offsets([L_x, L_y])
+            text_Left.set_position((L_x, L_y))
+            text_Left.set_text(f"({L_x:.2f}, {L_y:.2f})")
+
         if not position_queue.empty():
-            temp_position = position_queue.get_nowait()
+            temp_position = get_latest(position_queue)
             x = temp_position['x']
             y = temp_position['y']
             angle = temp_position['angle']
@@ -283,9 +419,6 @@ def animate(i, position_queue, target_position_queue, F_position_queue, scatter_
             scatter_current.set_offsets([x, y])
             text_current.set_position((x, y))
             text_current.set_text(f"({x:.2f}, {y:.2f})")
-            
-            #obstacle
-            #scatter_current.set_offsets([F_obstacle_xy])
 
             arrow_length = 0.1
             dx = arrow_length * math.cos(angle)
@@ -303,7 +436,9 @@ def animate(i, position_queue, target_position_queue, F_position_queue, scatter_
     except queue.Empty:
         pass  # Handle potential race conditions where queue becomes empty between checks
 
-def plot_robot_position(position_queue, target_position_queue, F_position_queue):
+
+
+def plot_robot_position(position_queue, target_position_queue, F_position_queue, R_position_queue, B_position_queue, L_position_queue):
     """Plot the robot's position using animation."""
     fig, ax = plt.subplots()
     ax.axhline(0, color='black', linewidth=0.8)
@@ -311,11 +446,17 @@ def plot_robot_position(position_queue, target_position_queue, F_position_queue)
     ax.grid(color='gray', linestyle='--', linewidth=0.5)
 
     # Initialize plot elements outside the animation loop
-    scatter_current = ax.scatter([], [], color='red', label="Current")
+    scatter_current = ax.scatter([], [], color='red', label="Cur")
     text_current = ax.text(0, 0, "", fontsize=10, ha='right')
-    scatter_Front = ax.scatter([], [], color='blue', label="Front_D")
+    scatter_Front = ax.scatter([], [], color='blue', label="F_D")
     text_Front = ax.text(0, 0, "", fontsize=10, ha='right')
-    scatter_target = ax.scatter([], [], color='green', label="Target")
+    scatter_Right = ax.scatter([], [], color='purple', label="R_D")
+    text_Right = ax.text(0, 0, "", fontsize=10, ha='right')
+    scatter_Back = ax.scatter([], [], color='orange', label="B_D")
+    text_Back = ax.text(0, 0, "", fontsize=10, ha='right')
+    scatter_Left = ax.scatter([], [], color='cyan', label="L_D")
+    text_Left = ax.text(0, 0, "", fontsize=10, ha='right')
+    scatter_target = ax.scatter([], [], color='green', label="Tgt")
     text_target = ax.text(0, 0, "", fontsize=10, ha='right')
     arrow = ax.arrow(0, 0, 0, 0, head_width=0.05, head_length=0.05, fc='blue', ec='blue', label='Angle')
 
@@ -326,8 +467,12 @@ def plot_robot_position(position_queue, target_position_queue, F_position_queue)
     ax.set_title("PAUL's Position", fontsize=16)
     ax.legend(fontsize=12)
 
-    ani = animation.FuncAnimation(fig, animate, fargs=(position_queue, target_position_queue, F_position_queue, scatter_Front, text_Front, scatter_current, text_current, scatter_target, text_target, arrow), interval=200) # interval in ms
+    ani = animation.FuncAnimation(fig, animate, fargs=(position_queue, target_position_queue, F_position_queue, R_position_queue, B_position_queue, L_position_queue,
+                                                        scatter_Front, text_Front, scatter_Right, text_Right, scatter_Back, text_Back, scatter_Left, text_Left,
+                                                        scatter_current, text_current, scatter_target, text_target, arrow), interval=500)
     plt.show()
+
+
 
 def calculate_distance_and_heading_error(goal_x, goal_y, temp1_position):
     
@@ -494,6 +639,9 @@ def read_and_parse_serial():
     global encoderPos_BL
     global encoderPos_BR
     global distance_f
+    global distance_r
+    global distance_b
+    global distance_l
     while True:
         try:
             if ser.in_waiting > 0:
@@ -609,7 +757,7 @@ def main():
     theta_thread = threading.Thread(target=update_theta, daemon=True)
     print_thread = threading.Thread(target=print_safe, daemon=True)
     position_thread = threading.Thread(target=robot_position_funct, daemon=True)
-    plot_thread = threading.Thread(target=plot_robot_position, args=(position_queue, target_position_queue, F_position_queue), daemon=True)
+    plot_thread = threading.Thread(target=plot_robot_position, args=(position_queue, target_position_queue, F_position_queue, R_position_queue, B_position_queue, L_position_queue), daemon=True)
 
     read_thread.start()
     theta_thread.start()
