@@ -19,15 +19,7 @@ baud_rate = 250000
 ser = "/dev/ttyAMA0"
 serial_port = serial.Serial(ser, baud_rate, timeout=1)
 
-
-
-
-
-
 class rwSerial:
-    
-        
-
     
     def __init__(self, serial_port, print_queue):
         self.serial_port = serial_port
@@ -109,7 +101,8 @@ class rwSerial:
                             self.print_queue.add_message(f"Distances - L: {distance_l}, R: {distance_r}, B: {distance_b}, F: {distance_f}")
                             self.print_queue.add_message(f"Gyro - X: {gyro_x}, Y: {gyro_y}, Z: {gyro_z}")
                             self.print_queue.add_message(f"Accel - X: {accel_x}, Y: {accel_y}, Z: {accel_z}")
-                            self.print_queue.add_message(f"Encoder 1 - Position: {encoderPos_FL}, Rotation: {rotation_1}")
+                            self.print_queue.add_message(f"Encoder
+                                                          1 - Position: {encoderPos_FL}, Rotation: {rotation_1}")
                             self.print_queue.add_message(f"Encoder 2 - Position: {encoderPos_FR}, Rotation: {rotation_2}")
                             self.print_queue.add_message(f"Encoder 3 - Position: {encoderPos_BL}, Rotation: {rotation_3}")
                             self.print_queue.add_message(f"Encoder 4 - Position: {encoderPos_BR}, Rotation: {rotation_4}")
@@ -127,10 +120,7 @@ class rwSerial:
                 traceback.print_exc()
                 
         return encoderPos_FL
-        
-        
-   
-            
+         
 def main():
     
 

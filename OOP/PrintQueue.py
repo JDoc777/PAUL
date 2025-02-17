@@ -54,11 +54,11 @@ class PrintQueue:
         self.queue = queue.Queue()
     
     def add_message(self, message): 
-        """Add a message to the queue."""
+        #Add a message to the queue.
         self.queue.put(message)
 
     def print_messages(self):
-        """Continuously print messages from the queue."""
+        #Continuously print messages from the queue.
         while True:
             try:
                 message = self.queue.get(timeout=0.02)

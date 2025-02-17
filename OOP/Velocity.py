@@ -1,3 +1,36 @@
+"""
+This Velocity module is responsible for calculating the velocity of the robot using the encoder data and updating the robot's position based on the wheel velocities.
+
+Global Variables included:
+None 
+
+Usage:
+This module can be imported as a module for the robot control system of PAUL.
+
+Example for those who aren't experts at python:
+from Velocity import Velocity
+
+Classes:
+Velocity is the class name but is a subclass of the Position class. 
+It is responsible for calculating the velocity of the robot using the encoder data and updating the robot's position based on the wheel velocities.
+
+Dependecies ( Also known as Libraries):
+json
+time
+queue
+serial
+threading
+sys
+Encoder
+array
+Velocity
+PrintQueue
+rwSerial
+math
+Position
+
+"""
+
 import json
 import time
 import queue
@@ -13,13 +46,9 @@ import PrintQueue
 import rwSerial
 import math
 import numpy as np
-import Position
-
-
+import Position # When adding libraries make sure to use as to name them something besices the library or module name unless it a class from a pyhthon library that is commonly used
 
 class Velocity(Position.Position):
-    
-    
     
     def __init__(self, print_queue,rwSerial_instance): #fix this
         super().__init__(print_queue, rwSerial_instance)
@@ -31,14 +60,10 @@ class Velocity(Position.Position):
     
     def calculate_velocity(self, wheel):
         
-            
-          
             prev_pos = wheel[0]
             current_encoder_pos = wheel[1]
             delta_t = wheel[2]
                     
-                
-        
             radius = 0.04  # Radius in meters (40 mm)
             pulses_per_revolution = 111.25  # Pulses per revolution (PPR)
 
@@ -134,7 +159,6 @@ class Velocity(Position.Position):
             print(f"Robot Position: {self.robot_position}")
             #return robot_position
     
-        
     def test_print(self):
         print(f"Previous Position: {1}")
         print(f"Current Position: {2}")
