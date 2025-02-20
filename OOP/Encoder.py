@@ -1,3 +1,36 @@
+"""
+This module is responsible for calculating the position of the robot based on the encoder data.
+
+Global Variables included:
+None
+
+Usage:
+This module can be imported as a module for the robot control system of PAUL.
+
+Example for those who aren't experts at python:
+from Encoder import Encoder
+
+Classes:
+Encoder is the class name but is a subclass of the Position class.
+It is responsible for calculating the position of the robot based on the encoder data.
+
+
+Dependecies ( Also known as Libraries):
+json
+time
+queue
+serial
+threading
+sys
+Encoder
+array
+Velocity
+PrintQueue
+rwSerial
+math
+Position
+"""
+
 import json
 import time
 import queue

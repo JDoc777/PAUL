@@ -1,3 +1,31 @@
+"""
+This script demonstrates how to read and parse serial data from a microcontroller
+
+Global Variables included:
+None
+
+Usage:
+This module can be imported as a module for the robot control system of PAUL.
+
+Example for those who aren't experts at python:
+from rwSerial import rwSerial
+
+Dependecies ( Also known as Libraries):
+json
+time
+queue
+serial
+threading
+sys
+Encoder
+array
+Velocity
+PrintQueue
+rwSerial
+math
+Position
+"""
+
 import json
 import time
 import queue
@@ -19,8 +47,7 @@ baud_rate = 250000
 ser = "/dev/ttyAMA0"
 serial_port = serial.Serial(ser, baud_rate, timeout=1)
 
-class rwSerial:
-    
+class rwSerial:    
     def __init__(self, serial_port, print_queue):
         self.serial_port = serial_port
         self.print_queue = print_queue
@@ -47,9 +74,7 @@ class rwSerial:
 #             except Empty:
 #                 continue
 
-    
-     
-    
+        
     def parse_serial(self):
         
         while True:
