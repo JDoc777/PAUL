@@ -1,6 +1,7 @@
 import seaborn as sns
 import matplotlib.pyplot as plt
 import time 
+import threading
 from Velocity import Velocity
 from PrintQueue import PrintQueue
 from rwSerial import rwSerial
