@@ -1,3 +1,35 @@
+"""
+This module is responsible for plotting the path of the robot as it moves.
+
+Global Variables included:
+None
+
+Usage:
+This module can be imported as a module for the robot control system of PAUL.
+
+Example for those who aren't experts at python:
+from RobotPathPlotter import RobotPathPlotter
+
+Classes:
+RobotPathPlotter is the class name but is a subclass of the Position class.
+
+Dependecies ( Also known as Libraries):
+json
+time
+queue
+serial
+threading
+sys
+Encoder
+array
+Velocity
+PrintQueue
+rwSerial
+math
+Position
+seaborn
+"""
+
 import seaborn as sns
 import matplotlib.pyplot as plt
 import time 
