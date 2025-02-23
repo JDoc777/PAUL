@@ -45,11 +45,9 @@ import Velocity
 import PrintQueue
 import rwSerial
 import math
-import Position
+import Position as position
 
-class Encoder(Position.Position):
-   
-    
+class Encoder(position.Position):
     def __init__(self,print_queue,rwSerial_object):
         super().__init__(print_queue, rwSerial_object)
         self.encoder_state = {
